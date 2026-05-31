@@ -1,0 +1,30 @@
+sources:
+  - name: demo_beauty_site
+    base_url: "https://example.com"
+    category: "美妆护肤"
+    sub_category: "洁面"
+    delay_seconds: [1.5, 4.0]
+    selectors:
+      name: "h1"
+      brand: ".brand"
+      price: ".price"
+      description: ".description"
+      image: "img.product-image"
+      rating: ".rating"
+      review_count: ".review-count"
+    urls:
+      - "https://example.com/product/1"
+      - "https://example.com/product/2"
+
+  - name: demo_electronics_site
+    base_url: "https://example.com"
+    category: "数码电子"
+    sub_category: "耳机"
+    delay_seconds: [2.0, 5.0]
+    selectors:
+      name: "h1"
+      price: ".price"
+      description: ".description"
+      image: "img"
+    urls:
+      - "https://example.com/item/a"

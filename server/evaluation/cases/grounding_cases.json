@@ -1,0 +1,10 @@
+[
+  {
+    "id": "grounding_source_001",
+    "type": "chat",
+    "query": "推荐 Anker 100W 快充",
+    "followup": "第一款来源可靠吗",
+    "expected_text_contains": ["公开来源", "anker.com"],
+    "expected_min_products": 1
+  }
+]

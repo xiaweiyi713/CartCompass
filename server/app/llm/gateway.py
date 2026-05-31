@@ -1,0 +1,385 @@
+from __future__ import annotations
+
+import time
+from dataclasses import asdict
+from typing import AsyncIterator
+
+from pydantic import BaseModel
+
+from app.agent.llm_client import ArkLLMClient, LLMGatewayError
+from app.llm.router import ModelRouter
+from app.llm.schemas import (
+    ConstraintInput,
+    ConstraintOutput,
+    GroundedAnswerPacket,
+    GroundedProductFact,
+    IntentInput,
+    IntentOutput,
+)
+from app.llm.validators.json_validator import parse_model_json
+from app.models.schemas import LLMConfigRequest, LLMStatus, LLMTestRequest, Product
+from app.observability import observability
+from app.rag.product_repository import SearchConstraints
+from app.recovery import notice
+
+
+class LLMGateway:
+    """Task-level LLM gateway.
+
+    Business logic remains in AgentOrchestrator and retrieval/ranking. This
+    facade limits model calls to narrow tasks and validates structured output
+    before the rest of the system can use it.
+    """
+
+    def __init__(self, provider_gateway: ArkLLMClient | None = None) -> None:
+        self.provider_gateway = provider_gateway or ArkLLMClient()
+        self.router = ModelRouter()
+
+    @property
+    def is_configured(self) -> bool:
+        return self.provider_gateway.is_configured
+
+    @property
+    def model(self) -> str | None:
+        return self.provider_gateway.model
+
+    def status(self, session_id: str = "default") -> LLMStatus:
+        return self.provider_gateway.status(session_id)
+
+    def configure(self, request: LLMConfigRequest) -> LLMStatus:
+        return self.provider_gateway.configure(request)
+
+    def clear(self, session_id: str) -> LLMStatus:
+        return self.provider_gateway.clear(session_id)
+
+    async def test_connection(self, request: LLMTestRequest) -> dict:
+        return await self.provider_gateway.test_connection(request)
+
+    async def classify_intent(self, input_data: IntentInput, session_id: str = "default") -> IntentOutput | None:
+        return await self._safe_structured_call(
+            task="intent_classification",
+            session_id=session_id,
+            schema=IntentOutput,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是电商 Agent 的意图分类器。只输出 json。"
+                        "intent 必须是 smalltalk/recommend_product/compare_products/cart_action/checkout/"
+                        "product_qa/travel_bundle/image_search/profile_action/unknown 之一。"
+                    ),
+                },
+                {"role": "user", "content": input_data.model_dump_json()},
+            ],
+        )
+
+    async def parse_constraints(self, input_data: ConstraintInput, session_id: str = "default") -> ConstraintOutput | None:
+        return await self._safe_structured_call(
+            task="constraint_parsing",
+            session_id=session_id,
+            schema=ConstraintOutput,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是电商检索约束抽取器。只输出 json，不推荐商品。"
+                        "字段包括 category, sub_category, price_min, price_max, include_preferences, "
+                        "exclude_brands, exclude_terms, sort_preference。"
+                    ),
+                },
+                {"role": "user", "content": input_data.model_dump_json()},
+            ],
+        )
+
+    async def recommendation_reply(
+        self,
+        user_message: str,
+        products: list[Product],
+        constraints: SearchConstraints,
+        session_id: str = "default",
+    ) -> str | None:
+        packet = self._grounded_answer_packet(user_message, products[:3], constraints)
+        return await self.generate_grounded_answer(packet, session_id=session_id)
+
+    async def stream_recommendation_reply(
+        self,
+        user_message: str,
+        products: list[Product],
+        constraints: SearchConstraints,
+        session_id: str = "default",
+    ) -> AsyncIterator[str]:
+        packet = self._grounded_answer_packet(user_message, products[:3], constraints)
+        async for chunk in self.stream_grounded_answer(packet, session_id=session_id):
+            yield chunk
+
+    async def generate_grounded_answer(self, packet: GroundedAnswerPacket, session_id: str = "default") -> str | None:
+        config = self.provider_gateway._config_for_session(session_id)
+        if not config.is_configured:
+            return None
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ShopGuide 的受控回答生成器。你只能基于 grounded_answer_packet 回答。"
+                    "不要选择新商品，不要生成商品卡片，不要编造优惠、库存、销量、参数或承诺。"
+                    "如果证据不足，明确说当前商品库缺少该信息。输出自然中文，简洁。"
+                ),
+            },
+            {"role": "user", "content": packet.model_dump_json()},
+        ]
+        started_at = time.perf_counter()
+        try:
+            result = await self.provider_gateway._chat(
+                config,
+                messages=messages,
+                temperature=self.router.temperature_for_task("answer_generation"),
+                max_tokens=380,
+            )
+        except LLMGatewayError:
+            observability.increment("llm_grounded_answer_failures")
+            return None
+        observability.increment("llm_grounded_answer_success")
+        observability.record_latency("llm_grounded_answer_latency_ms", result.latency_ms)
+        observability.add_current_step(
+            "llm_grounded_answer",
+            {
+                "provider": result.provider,
+                "model": result.model,
+                "latency_ms": round(result.latency_ms, 2),
+                "task": packet.task,
+                "product_ids": [product.product_id for product in packet.selected_products],
+                "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            },
+        )
+        return result.text
+
+    async def stream_grounded_answer(self, packet: GroundedAnswerPacket, session_id: str = "default") -> AsyncIterator[str]:
+        config = self.provider_gateway._config_for_session(session_id)
+        if not config.is_configured:
+            return
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ShopGuide 的受控回答生成器。你只能基于 grounded_answer_packet 回答。"
+                    "不要选择新商品，不要生成商品卡片，不要编造优惠、库存、销量、参数或承诺。"
+                    "如果证据不足，明确说当前商品库缺少该信息。输出自然中文，简洁。"
+                ),
+            },
+            {"role": "user", "content": packet.model_dump_json()},
+        ]
+        started_at = time.perf_counter()
+        first_chunk_seen = False
+        chunk_count = 0
+        try:
+            async for chunk in self.provider_gateway._chat_stream(
+                config,
+                messages=messages,
+                temperature=self.router.temperature_for_task("answer_generation"),
+                max_tokens=380,
+            ):
+                if not first_chunk_seen:
+                    first_chunk_seen = True
+                    first_chunk_ms = (time.perf_counter() - started_at) * 1000
+                    observability.record_latency("llm_grounded_answer_first_chunk_latency_ms", first_chunk_ms)
+                    observability.add_current_step("llm_stream_first_chunk", {"latency_ms": round(first_chunk_ms, 2)})
+                chunk_count += 1
+                yield chunk
+        except LLMGatewayError as exc:
+            observability.increment("llm_grounded_answer_stream_failures")
+            observability.add_current_step("llm_stream_error", {"message": str(exc)})
+            return
+
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        if chunk_count:
+            observability.increment("llm_grounded_answer_stream_success")
+            observability.record_latency("llm_grounded_answer_stream_latency_ms", elapsed_ms)
+            observability.add_current_step(
+                "llm_grounded_answer_stream",
+                {
+                    "provider": config.provider,
+                    "model": config.model,
+                    "latency_ms": round(elapsed_ms, 2),
+                    "task": packet.task,
+                    "product_ids": [product.product_id for product in packet.selected_products],
+                    "chunks": chunk_count,
+                },
+            )
+
+    async def travel_need_plan(self, user_message: str, session_id: str = "default") -> dict | None:
+        return await self.provider_gateway.travel_need_plan(user_message, session_id=session_id)
+
+    async def general_chat(self, user_message: str, mode: str, session_id: str = "default") -> str | None:
+        config = self.provider_gateway._config_for_session(session_id)
+        if not config.is_configured:
+            return None
+        if mode == "product_knowledge":
+            system = (
+                "你是 ShopGuide 的商品知识助手。回答商品、消费、护肤、数码或生活选购知识。"
+                "不要推荐具体商品，不要生成商品卡片，不要编造商品库没有的价格、库存或优惠。"
+                "如果用户之后想购买，可以自然提示他补充预算、偏好或排除条件。"
+            )
+            temperature = 0.3
+        else:
+            system = (
+                "你是 ShopGuide，一个购物导向但不强推商品的对话助手。"
+                "普通聊天时正常回应，不要硬卖货，不要推荐具体商品。"
+                "如果话题和消费决策有关，可以轻量提示用户需要时可继续让你筛选。"
+                "避免医疗诊断、金融投资等高风险结论。回答简洁自然。"
+            )
+            temperature = 0.5
+        try:
+            result = await self.provider_gateway._chat(
+                config,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=temperature,
+                max_tokens=360,
+            )
+        except LLMGatewayError:
+            observability.increment("llm_general_chat_failures")
+            return None
+        observability.increment("llm_general_chat_success")
+        observability.record_latency("llm_general_chat_latency_ms", result.latency_ms)
+        observability.add_current_step(
+            "llm_general_chat",
+            {
+                "provider": result.provider,
+                "model": result.model,
+                "mode": mode,
+                "latency_ms": round(result.latency_ms, 2),
+            },
+        )
+        return result.text
+
+    async def _safe_structured_call(
+        self,
+        task: str,
+        session_id: str,
+        schema: type[BaseModel],
+        messages: list[dict],
+    ):
+        config = self.provider_gateway._config_for_session(session_id)
+        if not config.is_configured:
+            return None
+        started_at = time.perf_counter()
+        try:
+            result = await self.provider_gateway._chat(
+                config,
+                messages=messages,
+                temperature=self.router.temperature_for_task(task),
+                max_tokens=360,
+                response_format_json=True,
+            )
+        except LLMGatewayError:
+            observability.increment(f"llm_{task}_failures")
+            return None
+        parsed = parse_model_json(result.text, schema)
+        repaired = False
+        repair_latency_ms = None
+        if parsed is None:
+            repair_result = await self._repair_structured_output(
+                task=task,
+                session_id=session_id,
+                schema=schema,
+                raw_text=result.text,
+            )
+            if repair_result:
+                repaired = True
+                repair_latency_ms = repair_result.latency_ms
+                parsed = parse_model_json(repair_result.text, schema)
+        observability.add_current_step(
+            "llm_structured_task",
+            {
+                "task": task,
+                "provider": result.provider,
+                "model": result.model,
+                "latency_ms": round(result.latency_ms, 2),
+                "schema_valid": parsed is not None,
+                "repaired": repaired,
+                "repair_latency_ms": round(repair_latency_ms, 2) if repair_latency_ms is not None else None,
+                "elapsed_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            },
+        )
+        if parsed is None:
+            observability.increment(f"llm_{task}_schema_invalid")
+            observability.add_current_step(
+                "fallback",
+                {
+                    "code": "structured_output_failed",
+                    "task": task,
+                    "notice": notice("structured_output_failed").model_dump(),
+                },
+            )
+            return None
+        observability.increment(f"llm_{task}_success")
+        return parsed
+
+    async def _repair_structured_output(
+        self,
+        task: str,
+        session_id: str,
+        schema: type[BaseModel],
+        raw_text: str,
+    ):
+        config = self.provider_gateway._config_for_session(session_id)
+        schema_json = schema.model_json_schema()
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 JSON 修复器。把用户给出的模型输出修复为符合 schema 的 json。"
+                    "只输出 json 对象，不要 Markdown，不要解释。无法确定的字段用 null、false、空数组或合理默认值。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"task={task}\n"
+                    f"schema={schema_json}\n"
+                    f"raw_output={raw_text[:4000]}"
+                ),
+            },
+        ]
+        try:
+            result = await self.provider_gateway._chat(
+                config,
+                messages=messages,
+                temperature=0.0,
+                max_tokens=360,
+                response_format_json=True,
+            )
+        except LLMGatewayError:
+            observability.increment(f"llm_{task}_repair_failures")
+            return None
+        observability.increment(f"llm_{task}_repair_attempts")
+        return result
+
+    def _grounded_answer_packet(
+        self,
+        user_message: str,
+        products: list[Product],
+        constraints: SearchConstraints,
+    ) -> GroundedAnswerPacket:
+        return GroundedAnswerPacket(
+            task="recommendation",
+            user_query=user_message,
+            constraints=asdict(constraints),
+            selected_products=[self._grounded_product_fact(product) for product in products],
+        )
+
+    def _grounded_product_fact(self, product: Product) -> GroundedProductFact:
+        return GroundedProductFact(
+            product_id=product.product_id,
+            name=product.title,
+            brand=product.brand,
+            category=product.category,
+            sub_category=product.sub_category,
+            price=product.base_price,
+            source_name=product.source_name,
+            evidence=product.evidence[:3],
+            match_reasons=product.match_reasons[:5],
+            risk_flags=product.risk_flags[:5],
+        )

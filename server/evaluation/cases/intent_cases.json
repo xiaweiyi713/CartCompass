@@ -1,0 +1,33 @@
+[
+  {
+    "id": "intent_smalltalk_001",
+    "type": "chat",
+    "query": "你好",
+    "expected_text_contains": ["导购", "商品库"],
+    "expected_min_products": 0
+  },
+  {
+    "id": "intent_clarify_phone_001",
+    "type": "chat",
+    "query": "推荐手机",
+    "expect_clarification": true,
+    "expected_text_contains": ["拍照", "续航", "预算"],
+    "expected_min_products": 0
+  },
+  {
+    "id": "intent_travel_bundle_001",
+    "type": "chat",
+    "query": "推荐去三亚要带的东西",
+    "expected_text_contains": ["三亚", "防晒"],
+    "expected_min_products": 3,
+    "must_not_contain": ["智能手机"]
+  },
+  {
+    "id": "intent_travel_bundle_japan_001",
+    "type": "chat",
+    "query": "推荐一下日本度假要带的东西",
+    "expected_text_contains": ["日本", "度假"],
+    "expected_min_products": 3,
+    "must_not_contain": ["三亚", "智能手机"]
+  }
+]

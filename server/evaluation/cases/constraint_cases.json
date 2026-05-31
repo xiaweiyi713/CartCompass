@@ -1,0 +1,18 @@
+[
+  {
+    "id": "constraint_sunscreen_oily_001",
+    "type": "chat",
+    "query": "推荐适合油皮的防晒，200元以内，不要含酒精",
+    "expected_product_ids": ["p_beauty_006"],
+    "expected_min_products": 1,
+    "expected_text_contains": ["排除", "商品库"]
+  },
+  {
+    "id": "constraint_charger_anker_001",
+    "type": "chat",
+    "query": "推荐 Anker 100W 快充",
+    "expected_product_ids": ["p_anker_003_a24c9a01"],
+    "expected_min_products": 1,
+    "expected_text_contains": ["商品库"]
+  }
+]

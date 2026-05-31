@@ -1,0 +1,20 @@
+[
+  {
+    "id": "budget_plan_sanya_001",
+    "type": "chat",
+    "query": "我1000元预算，下周去三亚，帮我配一套防晒和出行用品",
+    "expected_text_contains": ["预算", "总价"],
+    "expected_min_products": 3,
+    "expect_plan": true,
+    "must_not_contain": ["智能手机"]
+  },
+  {
+    "id": "budget_plan_japan_001",
+    "type": "chat",
+    "query": "我1000元预算，下周去日本，帮我配一套出行用品清单",
+    "expected_text_contains": ["日本", "预算", "总价"],
+    "expected_min_products": 3,
+    "expect_plan": true,
+    "must_not_contain": ["三亚", "智能手机"]
+  }
+]

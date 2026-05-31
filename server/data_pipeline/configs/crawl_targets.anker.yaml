@@ -1,0 +1,22 @@
+sources:
+  - name: anker_official_store
+    base_url: "https://www.anker.com"
+    category: "数码电子"
+    sub_category: "充电设备"
+    delay_seconds: [1.2, 2.0]
+    selectors:
+      name: "h1"
+      price: ""
+      description: ""
+      image: ""
+      rating: ""
+      review_count: ""
+    urls:
+      - "https://www.anker.com/products/a2039-nano-47w-charger"
+      - "https://www.anker.com/products/b2679-nano-100w-usb-c-charger"
+      - "https://www.anker.com/products/a2688-anker-prime-charger-100w-3-ports-gan"
+      - "https://www.anker.com/products/a1336-20000mah-power-bank"
+      - "https://www.anker.com/products/a1259-built-in-cable-power-bank-10000mah"
+      - "https://www.anker.com/products/a1653-usb-c-portable-charger-5000mah"
+      - "https://www.anker.com/products/a9129-charging-station-67w"
+      - "https://www.anker.com/products/a82e2-240w-usb-c-to-usb-c-cable"

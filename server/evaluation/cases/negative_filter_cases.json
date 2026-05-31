@@ -1,0 +1,10 @@
+[
+  {
+    "id": "neg_brand_xiaomi_001",
+    "type": "chat",
+    "query": "苹果手机不要小米",
+    "expected_min_products": 1,
+    "must_not_brand": ["小米"],
+    "expected_text_contains": ["排除"]
+  }
+]

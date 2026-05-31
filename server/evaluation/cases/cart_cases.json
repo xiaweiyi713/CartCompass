@@ -1,0 +1,9 @@
+[
+  {
+    "id": "cart_sku_add_checkout_001",
+    "type": "cart",
+    "product_id": "p_digital_003",
+    "sku_id": "s_p_digital_003_1",
+    "quantity": 1
+  }
+]

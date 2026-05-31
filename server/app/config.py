@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+REPO_DIR = Path(__file__).resolve().parents[2]
+SERVER_DIR = REPO_DIR / "server"
+
+load_dotenv(SERVER_DIR / ".env")
+
+DB_PATH = Path(os.getenv("SHOPGUIDE_DB", SERVER_DIR / "storage" / "shopguide.sqlite3"))
+STORAGE_DIR = DB_PATH.parent
+STATIC_DIR = Path(os.getenv("SHOPGUIDE_STATIC_DIR", SERVER_DIR / "static"))
+PRODUCT_IMAGE_DIR = STATIC_DIR / "product_images"
+
+ARK_API_KEY = os.getenv("ARK_API_KEY", "")
+ARK_BASE_URL = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+ARK_MODEL = os.getenv("ARK_MODEL", "ep-20260514111645-lmgt2")
+ARK_TIMEOUT_SECONDS = float(os.getenv("ARK_TIMEOUT_SECONDS", "8"))
+
+LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "ark")
+LLM_DEFAULT_TIMEOUT_SECONDS = float(os.getenv("LLM_DEFAULT_TIMEOUT_SECONDS", str(ARK_TIMEOUT_SECONDS)))
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+
+TEXT_EMBEDDING_BASE_URL = os.getenv("TEXT_EMBEDDING_BASE_URL", ARK_BASE_URL)
+TEXT_EMBEDDING_MODEL = os.getenv("TEXT_EMBEDDING_MODEL", "")
+TEXT_EMBEDDING_API_KEY = os.getenv("TEXT_EMBEDDING_API_KEY", ARK_API_KEY)
+TEXT_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("TEXT_EMBEDDING_TIMEOUT_SECONDS", "8"))
+
+VISION_UNDERSTANDING_BASE_URL = os.getenv("VISION_UNDERSTANDING_BASE_URL", ARK_BASE_URL)
+VISION_UNDERSTANDING_MODEL = os.getenv("VISION_UNDERSTANDING_MODEL", "")
+VISION_UNDERSTANDING_API_KEY = os.getenv("VISION_UNDERSTANDING_API_KEY") or ARK_API_KEY
+VISION_UNDERSTANDING_TIMEOUT_SECONDS = float(os.getenv("VISION_UNDERSTANDING_TIMEOUT_SECONDS", "12"))
+VISION_UNDERSTANDING_IMAGE_DETAIL = os.getenv("VISION_UNDERSTANDING_IMAGE_DETAIL", "auto")
+VISION_UNDERSTANDING_MAX_IMAGE_SIDE = int(os.getenv("VISION_UNDERSTANDING_MAX_IMAGE_SIDE", "1024"))
+VISION_UNDERSTANDING_MAX_TOKENS = int(os.getenv("VISION_UNDERSTANDING_MAX_TOKENS", "300"))
+VISION_UNDERSTANDING_JSON_MODE = os.getenv("VISION_UNDERSTANDING_JSON_MODE", "false").lower() in {"1", "true", "yes"}

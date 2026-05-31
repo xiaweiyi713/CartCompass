@@ -1,0 +1,17 @@
+[
+  {
+    "id": "profile_memory_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "记住我以后护肤品不要含酒精，我是油皮，预算200",
+        "expected_text_contains": ["记住", "酒精", "油皮"]
+      },
+      {
+        "query": "推荐防晒",
+        "expected_product_ids": ["p_beauty_006"],
+        "expected_min_products": 1
+      }
+    ]
+  }
+]

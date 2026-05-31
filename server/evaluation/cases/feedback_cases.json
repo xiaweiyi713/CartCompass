@@ -1,0 +1,34 @@
+[
+  {
+    "id": "feedback_cheaper_alternative_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "推荐适合油皮的防晒，200元以内，不要含酒精",
+        "expected_product_ids": ["p_beauty_006"],
+        "expected_min_products": 1
+      },
+      {
+        "query": "第一款太贵了，有没有平替",
+        "expected_text_contains": ["平替"],
+        "expected_min_products": 1
+      }
+    ]
+  },
+  {
+    "id": "feedback_brand_switch_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "推荐 Anker 100W 快充",
+        "expected_min_products": 1
+      },
+      {
+        "query": "换个品牌",
+        "expected_text_contains": ["避开"],
+        "expected_min_products": 1,
+        "must_not_brand": ["Anker"]
+      }
+    ]
+  }
+]

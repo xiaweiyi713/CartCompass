@@ -1,0 +1,51 @@
+[
+  {
+    "id": "multi_turn_phone_budget_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "推荐手机",
+        "expect_clarification": true,
+        "expected_text_contains": ["拍照", "预算"]
+      },
+      {
+        "query": "拍照优先，预算4000",
+        "expected_min_products": 1,
+        "expected_category": "数码电子"
+      }
+    ]
+  },
+  {
+    "id": "multi_turn_review_followup_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "推荐适合油皮的防晒，200元以内，不要含酒精",
+        "expected_product_ids": ["p_beauty_006"],
+        "expected_min_products": 1
+      },
+      {
+        "query": "第一款差评主要说什么",
+        "expected_text_contains": ["商品库", "差评"],
+        "expected_min_products": 1
+      }
+    ]
+  },
+  {
+    "id": "multi_turn_phone_to_japan_travel_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "推荐手机",
+        "expect_clarification": true,
+        "expected_text_contains": ["拍照", "预算"]
+      },
+      {
+        "query": "推荐一下去日本要带的东西",
+        "expected_text_contains": ["日本", "上一轮手机偏好"],
+        "expected_min_products": 3,
+        "must_not_contain": ["三亚", "智能手机"]
+      }
+    ]
+  }
+]

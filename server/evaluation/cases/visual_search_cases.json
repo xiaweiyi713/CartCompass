@@ -1,0 +1,17 @@
+[
+  {
+    "id": "visual_exact_phone_001",
+    "type": "visual_search",
+    "image_path": "server/static/product_images/p_digital_016.jpg",
+    "expected_topk": ["p_digital_016"],
+    "k": 3
+  },
+  {
+    "id": "visual_fused_phone_001",
+    "type": "visual_search",
+    "image_path": "server/static/product_images/p_digital_016.jpg",
+    "query": "手机 续航",
+    "expected_topk": ["p_digital_016"],
+    "k": 5
+  }
+]

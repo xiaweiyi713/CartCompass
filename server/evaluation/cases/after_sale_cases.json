@@ -1,0 +1,18 @@
+[
+  {
+    "id": "after_sale_policy_001",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "我要看17pm",
+        "expected_product_ids": ["p_digital_003"],
+        "expected_min_products": 1
+      },
+      {
+        "query": "第一款售后和保修怎么说",
+        "expected_text_contains": ["Demo", "不承诺真实平台"],
+        "expected_min_products": 1
+      }
+    ]
+  }
+]

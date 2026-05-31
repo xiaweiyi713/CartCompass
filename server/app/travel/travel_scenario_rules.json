@@ -1,0 +1,114 @@
+[
+  {
+    "id": "beach_hot_humid",
+    "scene_name": "海滨高温潮湿旅行",
+    "triggers": ["海滨", "热带", "高温", "潮湿", "强紫外线", "游泳", "海边", "海岛"],
+    "required_needs": ["防晒", "防水", "透气", "补水", "收纳"],
+    "recommended_categories": [
+      {"need": "防晒", "category": "美妆护肤", "sub_category": "防晒", "priority": 1, "query": "高倍 防水 防汗 清爽 防晒 海边 暴晒", "reason": "强紫外线和水上活动下优先防晒", "quota": 1},
+      {"need": "透气穿搭", "category": "服饰运动", "sub_category": "速干T恤", "priority": 1, "query": "速干 透气 轻薄 短袖 海边 防晒衣", "reason": "高温潮湿环境需要轻薄速干衣物", "quota": 1},
+      {"need": "物理遮挡", "category": "服饰运动", "sub_category": "帽子", "priority": 2, "query": "遮阳 防晒 透气 鸭舌帽 海边", "reason": "长时间户外拍照和步行需要遮阳", "quota": 1},
+      {"need": "电子防断电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "旅行 快充 充电宝 数据线 便携", "reason": "户外拍照导航会增加设备耗电", "quota": 1},
+      {"need": "补水补能", "category": "食品饮料", "sub_category": "功能饮料", "priority": 3, "query": "补水 维生素 饮料 补能 高温", "reason": "高温环境下需要及时补水和补能", "quota": 1}
+    ],
+    "avoid_categories": ["厚外套", "雪地靴"]
+  },
+  {
+    "id": "plateau_dry",
+    "scene_name": "高原强紫外线干燥旅行",
+    "triggers": ["高原", "干燥", "强紫外线", "昼夜温差", "长途", "自驾", "沙漠"],
+    "required_needs": ["防晒", "保湿", "防风", "补能", "充电"],
+    "recommended_categories": [
+      {"need": "高倍防晒", "category": "美妆护肤", "sub_category": "防晒", "priority": 1, "query": "高倍 防晒 紫外线 户外 高原", "reason": "高原和干燥地区紫外线更强", "quota": 1},
+      {"need": "保湿修护", "category": "美妆护肤", "sub_category": "面霜", "priority": 1, "query": "干燥 保湿 修护 屏障 面霜", "reason": "干燥和风吹容易造成皮肤紧绷", "quota": 1},
+      {"need": "防滑步行", "category": "服饰运动", "sub_category": "徒步鞋", "priority": 2, "query": "徒步 防水 抓地 防风 户外鞋", "reason": "户外景区和长距离步行更看重抓地和支撑", "quota": 1},
+      {"need": "长途补电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "长途 自驾 快充 大容量 旅行 充电", "reason": "长途移动中导航拍照需要稳定补电", "quota": 1},
+      {"need": "路上补能", "category": "食品饮料", "sub_category": "坚果/零食", "priority": 3, "query": "长途 补能 独立包装 坚果 零食", "reason": "长线行程适合携带独立包装补能食品", "quota": 1}
+    ],
+    "avoid_categories": ["凉鞋", "泳衣"]
+  },
+  {
+    "id": "cold_snow",
+    "scene_name": "寒冷冰雪旅行",
+    "triggers": ["寒冷", "冰雪", "低温", "大风", "雪地", "干燥", "滑雪"],
+    "required_needs": ["保暖", "防风", "防滑", "保湿", "电池保温"],
+    "recommended_categories": [
+      {"need": "干冷保湿", "category": "美妆护肤", "sub_category": "面霜", "priority": 1, "query": "寒冷 干燥 保湿 修护 面霜", "reason": "干冷大风环境容易造成皮肤干裂", "quota": 1},
+      {"need": "贴身保暖", "category": "服饰运动", "sub_category": "运动服饰", "priority": 1, "query": "保暖 thermal brushed 卫衣 长裤", "reason": "低温户外需要保暖层", "quota": 1},
+      {"need": "防滑鞋履", "category": "服饰运动", "sub_category": "徒步鞋", "priority": 1, "query": "防水 防滑 雪地 徒步鞋", "reason": "冰雪路面需要防滑和稳定支撑", "quota": 1},
+      {"need": "热饮提神", "category": "食品饮料", "sub_category": "咖啡", "priority": 2, "query": "热饮 黑咖啡 速溶 提神", "reason": "寒冷户外和早起行程适合热饮补充", "quota": 1},
+      {"need": "低温补电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "低温 快充 充电设备 备用线", "reason": "低温环境会加快手机掉电", "quota": 1}
+    ],
+    "avoid_categories": ["凉鞋", "泳衣", "防水手机袋"]
+  },
+  {
+    "id": "city_walk",
+    "scene_name": "城市漫游旅行",
+    "triggers": ["城市漫游", "城市观光", "美食", "拍照", "长时间步行", "境外", "休闲"],
+    "required_needs": ["轻便鞋", "随身包", "拍照补电", "防晒", "提神"],
+    "recommended_categories": [
+      {"need": "随身收纳", "category": "服饰运动", "sub_category": "背包", "priority": 1, "query": "城市 暴走 轻量 双肩包 收纳", "reason": "城市漫游需要轻便收纳随身物品", "quota": 1},
+      {"need": "舒适步行", "category": "服饰运动", "sub_category": "运动鞋", "priority": 1, "query": "长时间步行 防水 舒适 运动鞋", "reason": "城市旅行经常长时间步行", "quota": 1},
+      {"need": "拍照导航补电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "境外 转换 快充 数据线 充电设备", "reason": "导航、翻译和拍照会增加耗电", "quota": 1},
+      {"need": "城市防晒", "category": "美妆护肤", "sub_category": "防晒", "priority": 3, "query": "城市观光 清爽 防晒 通勤", "reason": "白天户外逛街和拍照仍需要防晒", "quota": 1},
+      {"need": "早起提神", "category": "食品饮料", "sub_category": "咖啡", "priority": 3, "query": "早起 行程 提神 咖啡", "reason": "密集行程适合便携咖啡提神", "quota": 1}
+    ],
+    "avoid_categories": ["雪地靴"]
+  },
+  {
+    "id": "rainy_city",
+    "scene_name": "雨季湿润城市旅行",
+    "triggers": ["多雨", "湿润", "雨季", "潮湿", "温差适中"],
+    "required_needs": ["防水", "轻便鞋", "收纳", "清爽护肤"],
+    "recommended_categories": [
+      {"need": "防水鞋履", "category": "服饰运动", "sub_category": "运动鞋", "priority": 1, "query": "防水 雨天 舒适 运动鞋 城市", "reason": "雨季城市漫游需要防水和舒适步行", "quota": 1},
+      {"need": "随身收纳", "category": "服饰运动", "sub_category": "背包", "priority": 1, "query": "通勤 轻量 防泼水 双肩包 收纳", "reason": "雨天出行需要更可靠的随身收纳", "quota": 1},
+      {"need": "清爽防晒", "category": "美妆护肤", "sub_category": "防晒", "priority": 2, "query": "清爽 防晒 潮湿 城市", "reason": "湿润地区更适合清爽肤感防晒", "quota": 1},
+      {"need": "补电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "旅行 快充 数据线 便携", "reason": "城市出行离不开导航和拍照补电", "quota": 1},
+      {"need": "轻食补给", "category": "食品饮料", "sub_category": "坚果/零食", "priority": 3, "query": "独立包装 零食 早餐 代餐", "reason": "排队和换乘时适合随身补给", "quota": 1}
+    ],
+    "avoid_categories": []
+  },
+  {
+    "id": "hiking_camping",
+    "scene_name": "徒步露营户外旅行",
+    "triggers": ["徒步", "露营", "爬山", "山地", "草原", "户外", "长线"],
+    "required_needs": ["防滑", "耐磨", "收纳", "补能", "充电"],
+    "recommended_categories": [
+      {"need": "户外鞋履", "category": "服饰运动", "sub_category": "徒步鞋", "priority": 1, "query": "徒步 防水 抓地 登山 户外", "reason": "徒步场景鞋履稳定性优先", "quota": 1},
+      {"need": "户外收纳", "category": "服饰运动", "sub_category": "背包", "priority": 1, "query": "户外 多功能 轻量 双肩背包", "reason": "露营徒步需要携带水、衣物和补给", "quota": 1},
+      {"need": "防晒遮挡", "category": "服饰运动", "sub_category": "帽子", "priority": 2, "query": "户外 遮阳 防晒 透气 帽子", "reason": "户外长时间暴露需要物理遮挡", "quota": 1},
+      {"need": "大容量补电", "category": "数码电子", "sub_category": "充电设备", "priority": 2, "query": "户外 大容量 充电宝 快充", "reason": "户外行程更依赖手机导航和应急通信", "quota": 1},
+      {"need": "能量补给", "category": "食品饮料", "sub_category": "坚果/零食", "priority": 2, "query": "独立包装 坚果 能量 补给", "reason": "徒步途中需要轻便高能量食物", "quota": 1}
+    ],
+    "avoid_categories": []
+  },
+  {
+    "id": "business_trip",
+    "scene_name": "商务出差",
+    "triggers": ["商务", "出差", "会议", "办公", "通勤"],
+    "required_needs": ["快充", "通勤收纳", "提神", "体面轻便"],
+    "recommended_categories": [
+      {"need": "多设备快充", "category": "数码电子", "sub_category": "充电设备", "priority": 1, "query": "商务 出差 氮化镓 快充 充电器 数据线", "reason": "出差常有手机和电脑多设备充电需求", "quota": 2},
+      {"need": "通勤收纳", "category": "服饰运动", "sub_category": "背包", "priority": 1, "query": "通勤 轻量 双肩包 电脑包 收纳", "reason": "会议材料和数码设备需要集中收纳", "quota": 1},
+      {"need": "会议提神", "category": "食品饮料", "sub_category": "咖啡", "priority": 2, "query": "会议 提神 黑咖啡 速溶", "reason": "密集会议和早班交通适合咖啡提神", "quota": 1},
+      {"need": "酒店保湿", "category": "美妆护肤", "sub_category": "面霜", "priority": 3, "query": "酒店 干燥 保湿 修护 面霜", "reason": "酒店空调环境容易干燥", "quota": 1}
+    ],
+    "avoid_categories": ["雪地靴", "泳衣"]
+  },
+  {
+    "id": "family_trip",
+    "scene_name": "亲子家庭旅行",
+    "triggers": ["亲子", "带娃", "小孩", "老人", "家庭"],
+    "required_needs": ["温和防晒", "收纳", "补能", "舒适步行"],
+    "recommended_categories": [
+      {"need": "温和防晒", "category": "美妆护肤", "sub_category": "防晒", "priority": 1, "query": "温和 高倍 防晒 敏感肌 户外", "reason": "家庭旅行更看重温和和稳定防护", "quota": 1},
+      {"need": "家庭收纳", "category": "服饰运动", "sub_category": "背包", "priority": 1, "query": "多功能 轻量 双肩背包 收纳", "reason": "亲子出行随身物品更多", "quota": 1},
+      {"need": "舒适步行", "category": "服饰运动", "sub_category": "运动鞋", "priority": 2, "query": "舒适 长时间步行 运动鞋", "reason": "景区和城市游都需要减少脚部疲劳", "quota": 1},
+      {"need": "独立补给", "category": "食品饮料", "sub_category": "坚果/零食", "priority": 2, "query": "独立包装 零食 坚果 补能", "reason": "排队和交通途中适合随身补给", "quota": 1},
+      {"need": "设备补电", "category": "数码电子", "sub_category": "充电设备", "priority": 3, "query": "旅行 快充 充电设备", "reason": "拍照、导航和叫车会增加耗电", "quota": 1}
+    ],
+    "avoid_categories": []
+  }
+]
+
