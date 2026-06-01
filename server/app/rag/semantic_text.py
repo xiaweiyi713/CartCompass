@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.config import (
+    TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT,
     TEXT_EMBEDDING_API_KEY,
     TEXT_EMBEDDING_BASE_URL,
     TEXT_EMBEDDING_MODEL,
@@ -82,9 +83,15 @@ class TextEmbeddingClient:
 
 
 class TextEmbeddingStore:
-    def __init__(self, conn: sqlite3.Connection, client: TextEmbeddingClient | None = None) -> None:
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        client: TextEmbeddingClient | None = None,
+        allow_request_upsert: bool = TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT,
+    ) -> None:
         self.conn = conn
         self.client = client or TextEmbeddingClient()
+        self.allow_request_upsert = allow_request_upsert
         self._query_cache: dict[str, list[float]] = {}
         self._ensure_schema()
 
@@ -124,6 +131,8 @@ class TextEmbeddingStore:
                 return normalize_vector([float(item) for item in json.loads(row["vector_json"])])
             except (TypeError, ValueError, json.JSONDecodeError):
                 pass
+        if not self.allow_request_upsert:
+            return None
         vector = self.client.embed(source_text)
         if not vector:
             return None

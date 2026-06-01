@@ -18,6 +18,14 @@ python scripts/ingest_products.py
 python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
+也可以用 Docker 固定 Python 3.11 运行环境：
+
+```bash
+docker compose up --build shopguide-api
+```
+
+Compose 会挂载 `server/storage` 和 `server/static`，默认端口仍是 `http://127.0.0.1:8000`。需要启用豆包/方舟时，把 `ARK_API_KEY`、`VISION_UNDERSTANDING_API_KEY` 等环境变量导出后再启动。
+
 ## 启动 iOS
 
 ```bash
@@ -26,7 +34,7 @@ xcodegen generate
 open ShopGuide.xcodeproj
 ```
 
-在 iOS Simulator 里运行 `ShopGuide`，确保后端保持在 `http://127.0.0.1:8000`。
+在 iOS Simulator 里运行 `ShopGuide`，默认连接 `http://127.0.0.1:8000`。如需切换后端地址，可改 `client-ios/project.yml` 里的 `SHOPGUIDE_API_BASE_URL` 后重新运行 `xcodegen generate`，或在调试时写入 `UserDefaults` 的 `shopguide.apiBaseURL`。
 
 ## 已验证链路
 
@@ -34,10 +42,10 @@ open ShopGuide.xcodeproj
 - `POST /api/chat/stream` 支持 SSE token + products + cart 事件。
 - `POST /api/chat/stream` 支持 `compare` 事件，可渲染结构化商品对比。
 - `POST /api/image_search` 支持图片上传和图文融合找货，会融合可选 VLM 图像理解、可选 CLIP 语义图像、轻量视觉特征和文本检索排名。
-- 图片找货可选接入 OpenAI-compatible VLM：配置 `VISION_UNDERSTANDING_MODEL` 后会先把上传图理解成品类、子类目、关键词和外观属性；未配置时不中断服务，继续使用 CLIP/轻量视觉 fallback。
-- 本地 VLM 演示配置已采用已开通的方舟视觉模型 `doubao-seed-2-0-lite-260428`；补上 `VISION_UNDERSTANDING_API_KEY` 或 `ARK_API_KEY` 后可用 `server/scripts/probe_vision_understanding.py` 跑真实图片理解调参。
+- 图片找货默认接入 OpenAI-compatible VLM 模型 `doubao-seed-2-0-lite-260428`；只要提供 `VISION_UNDERSTANDING_API_KEY` 或 `ARK_API_KEY`，上传图会先被理解成品类、子类目、关键词和外观属性。未配置 key 或调用失败时不中断服务，继续使用 CLIP/轻量视觉 fallback。
+- 本地 VLM 演示已用方舟真实 endpoint 调参；`server/scripts/probe_vision_understanding.py` 可复现实测图片理解和融合排序。
 - 图片找货支持可选 CLIP 语义图像检索层：安装 `sentence-transformers` 并配置 `SHOPGUIDE_CLIP_MODEL` 后会自动启用；未安装时会在不中断服务的情况下降级到轻量视觉特征。
-- 文本检索已升级为结构化过滤 + BM25 + 可选真实 text embedding + hashing fallback + 可信度 reranker，推荐理由会展示混合检索分量，并带 TTL/LRU 热门查询缓存。
+- 文本检索已升级为结构化过滤 + BM25 + 可选真实 text embedding + hashing fallback + 可信度 reranker；商品向量默认通过脚本或启动预热写入，检索请求期不再批量调用 embedding 接口，并带 TTL/LRU 热门查询缓存。
 - 支持平替/升级款/换品牌：例如推荐后说 `第一款太贵了，有没有平替`、`换个品牌`、`有没有更高端一点的`。
 - 支持用户反馈闭环：`喜欢这款`、`不喜欢`、`太贵`、`换品牌` 会记录到用户画像的 `last_feedback`，并即时触发重排或替代品检索。
 - 支持售后/退换货政策问答：例如 `第一款售后和保修怎么说`，系统会基于 Demo 边界、商品来源和类目风险回答，不编造平台承诺。

@@ -1,13 +1,38 @@
 import Foundation
 
 struct APIClient {
-    let baseURL = URL(string: "http://127.0.0.1:8000")!
+    static let defaultBaseURL = URL(string: "http://127.0.0.1:8000")!
+
+    let baseURL: URL
+
+    init(baseURL: URL? = nil) {
+        self.baseURL = baseURL ?? Self.configuredBaseURL()
+    }
 
     func absoluteImageURL(_ path: String) -> URL? {
         if path.hasPrefix("http") {
             return URL(string: path)
         }
         return URL(string: path, relativeTo: baseURL)?.absoluteURL
+    }
+
+    private static func configuredBaseURL() -> URL {
+        let candidates = [
+            UserDefaults.standard.string(forKey: "shopguide.apiBaseURL"),
+            Bundle.main.object(forInfoDictionaryKey: "SHOPGUIDE_API_BASE_URL") as? String
+        ]
+
+        for raw in candidates.compactMap({ $0 }) {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  let url = URL(string: trimmed),
+                  url.scheme != nil,
+                  url.host != nil else {
+                continue
+            }
+            return url
+        }
+        return defaultBaseURL
     }
 
     static func validate(_ response: URLResponse, data: Data) throws {

@@ -22,6 +22,20 @@ The app intentionally does not commit the shared challenge API key. Copy
 `.env.example` to `.env` or export `ARK_API_KEY` later when enabling live LLM
 generation.
 
+## Docker
+
+From the repository root, Docker Compose pins the runtime to Python 3.11 and
+starts the same FastAPI service:
+
+```bash
+docker compose up --build shopguide-api
+```
+
+The service mounts `./server/storage` and `./server/static`, so the local SQLite
+database and cached product images remain outside the container. Export
+`ARK_API_KEY`, `VISION_UNDERSTANDING_API_KEY`, or other model variables before
+running Compose when you want live Doubao/Ark responses.
+
 ## Optional LLM Gateway
 
 The RAG retrieval path works without an LLM key. The server exposes an LLM
@@ -83,20 +97,24 @@ export VISION_UNDERSTANDING_MODEL=doubao-seed-2-0-lite-260428
 export VISION_UNDERSTANDING_API_KEY=YOUR_KEY
 ```
 
-If this is unset or the call fails, image search keeps using CLIP when available
-and then the lightweight visual fallback.
+The default model is `doubao-seed-2-0-lite-260428`; with `ARK_API_KEY` present
+the service enables it automatically. If no key is set or the call fails, image
+search keeps using CLIP when available and then the lightweight visual fallback.
 
 For endpoint tuning, run a local product image through the probe script:
 
 ```bash
 PYTHONPATH=server python3 server/scripts/probe_vision_understanding.py \
   --image server/static/product_images/p_anker_001_fc881685.jpg \
-  --detail auto \
-  --max-image-side 1024
+  --detail low \
+  --max-image-side 768 \
+  --max-tokens 240
 ```
 
-Use `--detail low` or a smaller `--max-image-side` for lower latency/cost; use
-`--detail high` for images where text, labels, or small product details matter.
+The current Doubao demo default is `detail=low`, longest side `768`, and
+`max_tokens=240`: it recognized the Anker charger as `数码电子/充电设备` and
+kept the original product as Top 1 in fused ranking. Use `--detail high` only
+for images where text, labels, or small product details matter.
 For `doubao-seed-2-0-lite-260428`, keep `VISION_UNDERSTANDING_JSON_MODE=false`
 because the model returns a 400 error for `response_format=json_object`.
 
@@ -112,6 +130,18 @@ export TEXT_EMBEDDING_MODEL=YOUR_TEXT_EMBEDDING_MODEL_OR_ARK_ENDPOINT
 export TEXT_EMBEDDING_API_KEY=YOUR_KEY
 PYTHONPATH=server python3 server/scripts/build_text_embeddings.py
 ```
+
+Request-time product vector writes are disabled by default, so a search will use
+existing `text_embedding_vectors` and fall back to local hashing for missing
+rows. For small demos you can precompute on server startup:
+
+```bash
+export TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP=true
+export TEXT_EMBEDDING_PRECOMPUTE_LIMIT=50
+```
+
+Set `TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT=true` only when you explicitly want
+search requests to fill missing product vectors.
 
 When configured, traces show `text_embedding(...)` in `retrieval_stack`; when it
 is unavailable, the server automatically falls back to `hashing_vector`.

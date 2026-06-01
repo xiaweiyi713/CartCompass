@@ -146,10 +146,81 @@ def test_text_embedding_store_caches_product_vectors(tmp_path) -> None:
     conn.commit()
 
     client = FakeEmbeddingClient()
-    store = TextEmbeddingStore(conn, client)  # type: ignore[arg-type]
+    store = TextEmbeddingStore(conn, client, allow_request_upsert=True)  # type: ignore[arg-type]
     first = store.vector_for_product("p_semantic", "轻薄 长续航 大电池 手机")
     second = store.vector_for_product("p_semantic", "轻薄 长续航 大电池 手机")
 
     assert first == pytest.approx(second)
+    assert client.calls == 1
+    assert conn.execute("SELECT COUNT(*) FROM text_embedding_vectors").fetchone()[0] == 1
+
+
+def test_text_embedding_store_skips_request_time_product_upsert(tmp_path) -> None:
+    class FakeEmbeddingClient:
+        config = type("Config", (), {"provider": "fake", "model": "semantic-v1"})()
+        calls = 0
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def identity(self) -> tuple[str, str]:
+            return self.config.provider, self.config.model
+
+        def embed(self, text: str) -> list[float]:
+            self.calls += 1
+            return [float(len(text)), 1.0]
+
+    conn = connect(tmp_path / "shop.sqlite3")
+    init_schema(conn)
+
+    client = FakeEmbeddingClient()
+    store = TextEmbeddingStore(conn, client)  # type: ignore[arg-type]
+    vector = store.vector_for_product("p_missing", "轻薄 长续航 大电池 手机")
+
+    assert vector is None
+    assert client.calls == 0
+    assert conn.execute("SELECT COUNT(*) FROM text_embedding_vectors").fetchone()[0] == 0
+
+
+def test_text_embedding_store_precomputes_missing_vectors(tmp_path) -> None:
+    class FakeEmbeddingClient:
+        config = type("Config", (), {"provider": "fake", "model": "semantic-v1"})()
+        calls = 0
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def identity(self) -> tuple[str, str]:
+            return self.config.provider, self.config.model
+
+        def embed(self, text: str) -> list[float]:
+            self.calls += 1
+            return [float(len(text)), 1.0]
+
+    conn = connect(tmp_path / "shop.sqlite3")
+    init_schema(conn)
+    for product_id, search_text in [
+        ("p_semantic_1", "轻薄 长续航 大电池 手机"),
+        ("p_semantic_2", "油皮 防晒 不含酒精"),
+    ]:
+        conn.execute(
+            """
+            INSERT INTO products
+            (product_id, title, brand, category, sub_category, base_price, image_url, skus_json, rag_json, search_text)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (product_id, product_id, "Demo", "数码电子", "智能手机", 3999, "", "[]", "{}", search_text),
+        )
+    conn.commit()
+
+    client = FakeEmbeddingClient()
+    store = TextEmbeddingStore(conn, client)  # type: ignore[arg-type]
+    written = store.precompute_missing(limit=1)
+
+    assert written == 1
     assert client.calls == 1
     assert conn.execute("SELECT COUNT(*) FROM text_embedding_vectors").fetchone()[0] == 1

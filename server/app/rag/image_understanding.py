@@ -138,13 +138,16 @@ class OptionalVisionImageUnderstanding:
         self.max_tokens = max(64, max_tokens)
         self.json_mode = json_mode
         self.provider = f"openai_compatible_vlm:{model}" if model else "disabled"
+        self.last_error: str | None = None
 
     @property
     def available(self) -> bool:
         return bool(self.base_url and self.model and self.api_key)
 
     def analyze(self, image: Image.Image, query: str = "") -> ImageUnderstandingResult:
+        self.last_error = None
         if not self.available:
+            self.last_error = "vision understanding is not configured"
             return ImageUnderstandingResult(provider=self.provider, available=False)
         try:
             payload = self._payload(image, query)
@@ -154,8 +157,20 @@ class OptionalVisionImageUnderstanding:
                 response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
             return self._parse(content)
-        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+        except httpx.HTTPStatusError as exc:
+            self.last_error = self._http_error_summary(exc.response)
             return ImageUnderstandingResult(provider=self.provider, available=False)
+        except httpx.HTTPError as exc:
+            self.last_error = f"http_error:{exc.__class__.__name__}"
+            return ImageUnderstandingResult(provider=self.provider, available=False)
+        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            self.last_error = f"parse_error:{exc.__class__.__name__}"
+            return ImageUnderstandingResult(provider=self.provider, available=False)
+
+    def _http_error_summary(self, response: httpx.Response) -> str:
+        text = response.text[:400] if response.text else ""
+        text = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._-]+", r"\1***", text)
+        return f"http_status:{response.status_code}:{text}"
 
     def _payload(self, image: Image.Image, query: str) -> dict[str, Any]:
         data_uri = self._data_uri(image)

@@ -5,33 +5,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-IntentName = Literal[
-    "smalltalk",
-    "recommend_product",
-    "compare_products",
-    "cart_action",
-    "checkout",
-    "product_qa",
-    "travel_bundle",
-    "image_search",
-    "profile_action",
-    "unknown",
-]
-
-
-class IntentInput(BaseModel):
-    user_message: str
-    recent_context: list[str] = Field(default_factory=list)
-    current_topic: str | None = None
-
-
-class IntentOutput(BaseModel):
-    intent: IntentName
-    confidence: float = Field(ge=0, le=1)
-    topic_shift: bool = False
-    need_clarification: bool = False
-
-
 class ConstraintInput(BaseModel):
     user_message: str
     current_constraints: dict = Field(default_factory=dict)
@@ -95,4 +68,3 @@ class ModelCapability(BaseModel):
     best_for: list[str] = Field(default_factory=list)
     not_recommended_for: list[str] = Field(default_factory=list)
     max_context: int | None = None
-

@@ -13,9 +13,11 @@
 		1B66C439A69D1D2E7661533F /* ShoppingPlanCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEF138FDCBE24904CC54256 /* ShoppingPlanCard.swift */; };
 		2B1AB99596EFB4641774DFA8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22E127CE6038E2BB4422860E /* Assets.xcassets */; };
 		2E9EF8A1FD768B7995A90AF3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A0F49AD1E33E5C57F28645 /* APIClient.swift */; };
+		44214810320C7AAB3137616D /* LLMProviderPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = B034AD7596906FA8BB9D27C9 /* LLMProviderPreset.swift */; };
 		4FB63F965EF0A714A688CC88 /* ChatStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30E5308F12859346286ADAA /* ChatStreamService.swift */; };
 		646B5766E3FA8502A7DF9F24 /* ProductCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F94B50C424E49798871C51 /* ProductCarousel.swift */; };
 		6605C45CF5B539128B6E59A6 /* ImageSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150857AE7D704630F019DE73 /* ImageSearchService.swift */; };
+		6A6359BDFAAAE976DB2DB25B /* ChatLLMSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */; };
 		6C061ABA4BB6312F2D260E06 /* ProfileAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4087B2DBB397E0C7C690DAE0 /* ProfileAPIService.swift */; };
 		88113976A23E4384E44F8EA6 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87AD98EAF406340D917459 /* ChatViewModel.swift */; };
 		A22DD57D8EAF2E6B03CDE1EB /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948CF2D54C049D4F709214E5 /* ProfileView.swift */; };
@@ -26,6 +28,7 @@
 		D032063AA14C4D6079180D0B /* CompareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B43E58D2332EFA4A132BD7 /* CompareCard.swift */; };
 		D739FC348A05EF97F9E77337 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D758C4C468B330B92D4329 /* ChatView.swift */; };
 		E05015937BD452B86A4AB62E /* PrivacyComplianceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */; };
+		E54C9CDF8CDF84F15F352ECA /* ChatChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5C28B7D95706C2E1ADF863 /* ChatChrome.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,14 +40,17 @@
 		4087B2DBB397E0C7C690DAE0 /* ProfileAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAPIService.swift; sourceTree = "<group>"; };
 		48210A9AB5C5DB9E4493E168 /* CartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartView.swift; sourceTree = "<group>"; };
 		4D47F9B4E37BC2465A8229E9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLLMSettings.swift; sourceTree = "<group>"; };
 		68AEB50E8EC298C9818881EC /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
 		6D0D16F3D1FF019499D81A58 /* ShopGuide.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ShopGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyComplianceView.swift; sourceTree = "<group>"; };
 		82D758C4C468B330B92D4329 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		948CF2D54C049D4F709214E5 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		9820C68A7845E6F52C45CD64 /* Product.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Product.swift; sourceTree = "<group>"; };
+		B034AD7596906FA8BB9D27C9 /* LLMProviderPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProviderPreset.swift; sourceTree = "<group>"; };
 		B30E5308F12859346286ADAA /* ChatStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStreamService.swift; sourceTree = "<group>"; };
 		B75E8ADC790AE5FE8331683E /* CartAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartAPIService.swift; sourceTree = "<group>"; };
+		CA5C28B7D95706C2E1ADF863 /* ChatChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatChrome.swift; sourceTree = "<group>"; };
 		D45D47CA1E15227BDE845FDF /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		E0A0F49AD1E33E5C57F28645 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		ECC1B9485DBAFF277ACE40C8 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
@@ -126,8 +132,11 @@
 		CD67AE54A2D437C3ECEE2793 /* Chat */ = {
 			isa = PBXGroup;
 			children = (
+				CA5C28B7D95706C2E1ADF863 /* ChatChrome.swift */,
+				607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */,
 				82D758C4C468B330B92D4329 /* ChatView.swift */,
 				F6B43E58D2332EFA4A132BD7 /* CompareCard.swift */,
+				B034AD7596906FA8BB9D27C9 /* LLMProviderPreset.swift */,
 				809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */,
 				948CF2D54C049D4F709214E5 /* ProfileView.swift */,
 				3CEF138FDCBE24904CC54256 /* ShoppingPlanCard.swift */,
@@ -230,12 +239,15 @@
 				2E9EF8A1FD768B7995A90AF3 /* APIClient.swift in Sources */,
 				A4844566DEE5800E636129A6 /* CartAPIService.swift in Sources */,
 				B533436E88076A38981DE4A6 /* CartView.swift in Sources */,
+				E54C9CDF8CDF84F15F352ECA /* ChatChrome.swift in Sources */,
+				6A6359BDFAAAE976DB2DB25B /* ChatLLMSettings.swift in Sources */,
 				0CB09CF7D3FFA9763E74827D /* ChatMessage.swift in Sources */,
 				4FB63F965EF0A714A688CC88 /* ChatStreamService.swift in Sources */,
 				D739FC348A05EF97F9E77337 /* ChatView.swift in Sources */,
 				88113976A23E4384E44F8EA6 /* ChatViewModel.swift in Sources */,
 				D032063AA14C4D6079180D0B /* CompareCard.swift in Sources */,
 				6605C45CF5B539128B6E59A6 /* ImageSearchService.swift in Sources */,
+				44214810320C7AAB3137616D /* LLMProviderPreset.swift in Sources */,
 				E05015937BD452B86A4AB62E /* PrivacyComplianceView.swift in Sources */,
 				C844C3C4334A79AEF7543624 /* Product.swift in Sources */,
 				646B5766E3FA8502A7DF9F24 /* ProductCarousel.swift in Sources */,
@@ -259,11 +271,11 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = ShopGuide/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShopGuide;
-				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄实物图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于把你的语音需求转成文字导购请求。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于选择商品图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "用于识别你的语音导购需求并填入输入框。";
+				INFOPLIST_KEY_SHOPGUIDE_API_BASE_URL = "http://127.0.0.1:8000";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -283,11 +295,11 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = ShopGuide/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShopGuide;
-				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄实物图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于把你的语音需求转成文字导购请求。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于选择商品图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "用于识别你的语音导购需求并填入输入框。";
+				INFOPLIST_KEY_SHOPGUIDE_API_BASE_URL = "http://127.0.0.1:8000";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.api.routes import products
+from app.agent.session_store import SessionStore
 from app.observability import observability
 from app.rag.product_repository import SearchConstraints
 
@@ -68,3 +69,29 @@ def test_retrieval_cache_records_hit_rate_metric() -> None:
     assert observability.counters["retrieval_cache_hits"] >= before_hits + 1
     snapshot = observability.snapshot({"商品总数": 1})
     assert snapshot["derived_metrics"]["retrieval_cache_hit_rate"] != "n/a"
+
+
+def test_session_store_prunes_ttl_and_lru(monkeypatch) -> None:
+    now = 1_000.0
+    monkeypatch.setattr("app.agent.session_store.time.time", lambda: now)
+    store = SessionStore(ttl_seconds=10, max_entries=2)
+
+    first = store.get("first")
+    store.get("second")
+    store.get("first")
+    store.get("third")
+
+    assert store.size() == 2
+    assert store.get("first") is first
+
+    now = 1_020.0
+    assert store.size() == 0
+
+
+def test_product_repository_prefilters_candidates_in_sql() -> None:
+    rows = products._candidate_rows(SearchConstraints(category="数码电子", max_price=1200))
+
+    assert rows
+    assert all(row["category"] == "数码电子" for row in rows)
+    assert all(row["base_price"] <= 1200 for row in rows)
+    assert len(rows) < len(products.all())

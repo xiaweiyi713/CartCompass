@@ -318,7 +318,7 @@ async def image_search(file: UploadFile = File(...), query: str = "") -> dict:
     trace_id = observability.start_trace("image_search", {"filename": file.filename, "query": query})
     trace_token = observability.set_current_trace(trace_id)
     try:
-        results = image_search_service.search(content, query=query, limit=5)
+        results = await image_search_service.search_async(content, query=query, limit=5)
         observability.finish_trace(trace_id, "ok")
         payload = {"trace_id": trace_id, "products": [product.model_dump() for product in results]}
         if not results:

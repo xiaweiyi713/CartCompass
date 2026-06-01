@@ -1,0 +1,14 @@
+.git
+.DS_Store
+.pytest_cache
+__pycache__/
+*.pyc
+.venv/
+.env
+server/.env
+server/storage/
+server/data_pipeline/output/
+server/evaluation/output/
+data/extracted/
+client-ios/
+tmp/

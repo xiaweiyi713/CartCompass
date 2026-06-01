@@ -39,7 +39,7 @@ struct ProductDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 280)
-                .background(.regularMaterial)
+                .background(Theme.Color.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -168,7 +168,7 @@ private struct DecisionSection: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial)
+        .background(Theme.Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -198,7 +198,7 @@ private struct GroundingSection: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial)
+        .background(Theme.Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -257,7 +257,7 @@ private struct SKUSelector: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial)
+        .background(Theme.Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)

@@ -13,7 +13,7 @@ from app.agent.user_profile import UserProfileService
 from app.llm.gateway import LLMGateway
 from app.llm.schemas import ConstraintOutput, GroundedAnswerPacket
 from app.main import app
-from app.api.routes import agent
+from app.api.routes import agent, image_search_service
 from app.models.schemas import CurrentWeather, WeatherContext, WeatherImplications, WeatherLocation
 from app.rag.product_repository import SearchConstraints
 
@@ -281,6 +281,7 @@ def test_llm_gateway_streams_grounded_answer_chunks() -> None:
 
 def test_chat_stream_blocks_unsafe_llm_stream_before_emitting_risky_terms(monkeypatch) -> None:
     original_stream = agent.llm.stream_recommendation_reply
+    agent.reply_cache._items.clear()
 
     async def unsafe_stream(*args, **kwargs):
         yield "这几款可以领券，"
@@ -300,6 +301,113 @@ def test_chat_stream_blocks_unsafe_llm_stream_before_emitting_risky_terms(monkey
     assert "领券" not in token_text
     assert "库存充足" not in token_text
     assert "根据你的需求" in token_text or "以下价格和商品信息都来自本地商品库" in token_text
+
+
+def test_chat_stream_buffers_numeric_claim_before_flush(monkeypatch) -> None:
+    original_stream = agent.llm.stream_recommendation_reply
+    agent.reply_cache._items.clear()
+
+    async def split_price_stream(*args, **kwargs):
+        yield "这款今天只要99"
+        yield "元包邮。"
+
+    monkeypatch.setattr(agent.llm, "stream_recommendation_reply", split_price_stream)
+    try:
+        response = client.post(
+            "/api/chat/stream",
+            json={"session_id": "test-split-price-stream-guard", "message": "推荐适合油皮的防晒，200元以内"},
+        )
+    finally:
+        agent.llm.stream_recommendation_reply = original_stream
+
+    assert response.status_code == 200
+    token_text = _stream_tokens(response.text)
+    assert "99" not in token_text
+    assert "包邮" not in token_text
+    assert "根据你的需求" in token_text or "以下价格和商品信息都来自本地商品库" in token_text
+
+
+def test_chat_stream_drops_internal_model_review_segments(monkeypatch) -> None:
+    original_stream = agent.llm.stream_recommendation_reply
+    agent.reply_cache._items.clear()
+
+    async def review_leaking_stream(*args, **kwargs):
+        yield "推荐内容已整理完成，所有内容均严格依据给定参数。"
+        yield "为你推荐这款防晒，价格和适用信息来自商品库。"
+
+    monkeypatch.setattr(agent.llm, "stream_recommendation_reply", review_leaking_stream)
+    try:
+        response = client.post(
+            "/api/chat/stream",
+            json={"session_id": "test-internal-review-stream", "message": "推荐适合油皮的防晒，200元以内"},
+        )
+    finally:
+        agent.llm.stream_recommendation_reply = original_stream
+
+    assert response.status_code == 200
+    token_text = _stream_tokens(response.text)
+    assert "推荐内容已整理完成" not in token_text
+    assert "严格依据给定参数" not in token_text
+    assert "你推荐这款防晒" in token_text
+
+
+def test_chat_stream_waits_for_user_facing_answer_start(monkeypatch) -> None:
+    original_stream = agent.llm.stream_recommendation_reply
+    agent.reply_cache._items.clear()
+
+    async def preamble_stream(*args, **kwargs):
+        yield "第一款为售价199元的候选，适配当前需求。"
+        yield "第二款推荐内容均基于给定资料，无额外编造信息。"
+        yield "给你推荐这款防晒，价格和适用信息来自商品库。"
+
+    monkeypatch.setattr(agent.llm, "stream_recommendation_reply", preamble_stream)
+    try:
+        response = client.post(
+            "/api/chat/stream",
+            json={"session_id": "test-model-preamble-stream", "message": "推荐适合油皮的防晒，200元以内"},
+        )
+    finally:
+        agent.llm.stream_recommendation_reply = original_stream
+
+    assert response.status_code == 200
+    token_text = _stream_tokens(response.text)
+    assert "第一款为售价199元" not in token_text
+    assert "给定资料" not in token_text
+    assert "你推荐这款防晒" in token_text
+
+
+def test_orchestrator_strips_internal_model_review_text() -> None:
+    raw = (
+        "以下信息来自本地商品库。"
+        "当前需要为用户推荐5000左右、符合3250-6750元预算的手机。"
+        "我已核对两款推荐手机的配置、售价及对应人群均符合给定信息要求，输出规范无误。"
+        "符合预算区间的第二款推荐机型已补充完成，最终整理出两款适配不同需求的手机推荐内容，直接按此输出即可。"
+        "我已经整理好两款手机的推荐话术，无额外补充。"
+        "为你推荐小米17 Max，售价6499元，适合影音游戏。"
+    )
+
+    cleaned = agent.output_sanitizer.strip_internal_review_text(raw)
+
+    assert "已核对" not in cleaned
+    assert "输出规范" not in cleaned
+    assert "当前需要为用户" not in cleaned
+    assert "推荐话术" not in cleaned
+    assert "按此输出" not in cleaned
+    assert "为你推荐小米17 Max" in cleaned
+
+
+def test_orchestrator_strips_duplicate_model_preamble() -> None:
+    raw = (
+        "以下信息来自本地商品库。"
+        "第一款为售价6499元的小米17 Max，适配影音游戏爱好者。"
+        "第二款为OPPO Reno 16 Pro。"
+        "给你推荐两款符合预算区间的手机：1. 小米17 Max，售价6499元。"
+    )
+
+    cleaned = agent.output_sanitizer.strip_internal_review_text(raw)
+
+    assert cleaned.startswith("以下信息来自本地商品库。给你推荐两款")
+    assert "第一款为售价6499元" not in cleaned
 
 
 def test_recommendation_cache_uses_stable_key_and_ttl() -> None:
@@ -1340,6 +1448,26 @@ def test_image_search_returns_similar_product() -> None:
     products = response.json()["products"]
     assert products
     assert products[0]["product_id"] == "p_digital_016"
+
+
+def test_image_search_route_uses_async_service(monkeypatch) -> None:
+    async def fake_search_async(image_bytes: bytes, query: str = "", limit: int = 5):  # noqa: ANN001
+        assert image_bytes == b"fake-image"
+        assert query == "手机"
+        assert limit == 5
+        return []
+
+    monkeypatch.setattr(image_search_service, "search_async", fake_search_async)
+
+    response = client.post(
+        "/api/image_search?query=手机",
+        files={"file": ("fake.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["products"] == []
+    assert payload["fallback"]["code"] == "image_empty"
 
 
 def test_image_search_invalid_upload_returns_recoverable_fallback() -> None:

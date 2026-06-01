@@ -47,7 +47,7 @@ struct ShoppingPlanCard: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial)
+        .background(Theme.Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -75,7 +75,7 @@ private struct PlanItemRow: View {
                     ProgressView()
                 }
                 .frame(width: 58, height: 58)
-                .background(.thinMaterial)
+                .background(Color(.tertiarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .clipped()
             }

@@ -88,6 +88,8 @@ def main() -> int:
     print(f"  keywords={understanding.keywords or []}")
     print(f"  attributes={understanding.attributes or []}")
     print(f"  confidence={understanding.confidence:.2f}")
+    if adapter.last_error:
+        print(f"  error={adapter.last_error}")
     if not understanding.available:
         return 1
 

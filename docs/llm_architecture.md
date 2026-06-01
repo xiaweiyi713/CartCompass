@@ -14,7 +14,8 @@ The LLM is not the product recommender. It is used only for bounded language tas
 - `travel_need_plan`: convert free-form travel needs into structured shopping slots.
 - `generate_grounded_answer`: turn a backend-selected product evidence packet into natural Chinese.
 - `parse_constraints`: when a session LLM is configured, validated JSON output fills fields the deterministic parser missed; deterministic parsing remains the source of truth for already detected category, budget, exclusions, and offline fallback.
-- `classify_intent`: available as a validated JSON task for future router experiments, while the production router stays deterministic for latency and stability.
+
+Intent routing is intentionally deterministic in `ConversationModeRouter`, so the production path does not carry an unused LLM intent-classification task. This keeps first-turn latency and fallback behavior predictable for demo and evaluation.
 
 Product selection remains deterministic:
 

@@ -70,7 +70,7 @@ struct ProfileSummaryCard: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial)
+        .background(Theme.Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)

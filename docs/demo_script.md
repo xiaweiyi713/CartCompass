@@ -312,12 +312,16 @@ python3 server/scripts/stress_test_retrieval.py --sample 1000 --concurrency 16 -
 
 1. 发送任意问题，观察 assistant 思考态。
 2. 等待商品卡片出现。
-3. 切换模拟器深色模式。
+3. 点击麦克风按钮，用语音说出一个导购需求，再打开扬声器按钮让回复朗读。
+4. 重复打开同一批商品卡图片，观察二次加载速度。
+5. 切换模拟器深色模式。
 
 预期：
 
 - Assistant 空消息显示三点思考动画。
 - 商品卡图片加载时有 skeleton，占位不会导致布局跳动。
+- 图片走内存缓存和 `URLCache` 磁盘缓存，重复展示不会反复拉取同一张图。
+- 发送、加购、切换语音开关时有轻量触觉反馈；TTS 只朗读简短导购回答，不朗读商品卡 JSON。
 - 商品卡进入有轻量 scale/opacity 动效。
 - 深色模式下背景、卡片、徽标描边和文字对比保持清晰。
 
@@ -344,4 +348,5 @@ PYTHONPATH=server python3 server/evaluation/run_eval.py
 
 - Dashboard 显示商品总数、公开来源覆盖、评论覆盖、SKU 覆盖和规格图覆盖。
 - 能看到 Agent 调用次数、Grounding Guard 通过/拦截次数、图片检索延迟、SSE 首 token 延迟和最近 Trace。
+- 第二次发送完全相同的推荐问题时，`retrieval_cache_hit_rate` 或 `recommendation_cache_hit_rate` 应上升，可现场展示缓存命中带来的延迟下降。
 - 点击 Trace ID 或访问 `/api/traces/{trace_id}`，可以看到意图识别、约束解析、候选过滤、检索 Top 商品、Grounding Guard 和 SSE 输出链路。

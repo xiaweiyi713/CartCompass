@@ -87,13 +87,7 @@ class ProductRepository:
             return cached.products
 
         observability.increment("retrieval_cache_misses")
-        rows = self.conn.execute(
-            """
-            SELECT p.*, v.vector_json
-            FROM products p
-            JOIN product_vectors v ON p.product_id = v.product_id
-            """
-        ).fetchall()
+        rows = self._candidate_rows(constraints)
         query_vector = self.vectorizer.embed(self._query_text(query, constraints))
         semantic_query_vector = self.semantic_store.embed_query(self._query_text(query, constraints))
         candidate_rows: list[sqlite3.Row] = []
@@ -227,6 +221,34 @@ class ProductRepository:
             },
         )
         return results
+
+    def _candidate_rows(self, constraints: SearchConstraints) -> list[sqlite3.Row]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if constraints.category:
+            clauses.append("p.category = ?")
+            params.append(constraints.category)
+        if constraints.max_price is not None:
+            clauses.append("p.base_price <= ?")
+            params.append(constraints.max_price)
+        if constraints.min_price is not None:
+            clauses.append("p.base_price >= ?")
+            params.append(constraints.min_price)
+        if constraints.exclude_product_ids:
+            placeholders = ",".join("?" for _ in constraints.exclude_product_ids)
+            clauses.append(f"p.product_id NOT IN ({placeholders})")
+            params.extend(constraints.exclude_product_ids)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        return self.conn.execute(
+            f"""
+            SELECT p.*, v.vector_json
+            FROM products p
+            JOIN product_vectors v ON p.product_id = v.product_id
+            {where}
+            ORDER BY p.product_id
+            """,
+            tuple(params),
+        ).fetchall()
 
     def _matches_constraints(self, row: sqlite3.Row, c: SearchConstraints) -> bool:
         text = row["search_text"].lower()

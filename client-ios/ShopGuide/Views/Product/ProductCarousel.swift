@@ -251,6 +251,7 @@ struct RemoteProductImage<Placeholder: View>: View {
                     continue
                 }
                 if let image = UIImage(data: data) {
+                    URLCache.shared.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
                     return image
                 }
             } catch {
@@ -267,6 +268,8 @@ private final class ProductImageMemoryCache {
 
     private init() {
         cache.countLimit = 200
+        URLCache.shared.memoryCapacity = max(URLCache.shared.memoryCapacity, 32 * 1024 * 1024)
+        URLCache.shared.diskCapacity = max(URLCache.shared.diskCapacity, 160 * 1024 * 1024)
     }
 
     func image(for url: URL) -> UIImage? {

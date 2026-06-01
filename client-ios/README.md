@@ -10,5 +10,7 @@ xcodegen generate
 open ShopGuide.xcodeproj
 ```
 
-Keep the backend running at `http://127.0.0.1:8000` before launching the app in
-the iOS Simulator.
+The app defaults to `http://127.0.0.1:8000`. To point a debug build at another
+backend, update `SHOPGUIDE_API_BASE_URL` in `project.yml` and run
+`xcodegen generate`, or set `shopguide.apiBaseURL` in `UserDefaults` during
+local debugging.

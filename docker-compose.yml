@@ -1,0 +1,26 @@
+services:
+  shopguide-api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SHOPGUIDE_DB: /app/server/storage/shopguide.sqlite3
+      SHOPGUIDE_STATIC_DIR: /app/server/static
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_MODEL: ${ARK_MODEL:-doubao-seed-2-0-lite-260428}
+      ARK_API_KEY: ${ARK_API_KEY:-}
+      VISION_UNDERSTANDING_MODEL: ${VISION_UNDERSTANDING_MODEL:-doubao-seed-2-0-lite-260428}
+      VISION_UNDERSTANDING_API_KEY: ${VISION_UNDERSTANDING_API_KEY:-}
+      VISION_UNDERSTANDING_JSON_MODE: ${VISION_UNDERSTANDING_JSON_MODE:-false}
+      VISION_UNDERSTANDING_IMAGE_DETAIL: ${VISION_UNDERSTANDING_IMAGE_DETAIL:-low}
+      VISION_UNDERSTANDING_MAX_IMAGE_SIDE: ${VISION_UNDERSTANDING_MAX_IMAGE_SIDE:-768}
+    volumes:
+      - ./server/storage:/app/server/storage
+      - ./server/static:/app/server/static
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5

@@ -13,8 +13,6 @@ from app.llm.schemas import (
     ConstraintOutput,
     GroundedAnswerPacket,
     GroundedProductFact,
-    IntentInput,
-    IntentOutput,
 )
 from app.llm.validators.json_validator import parse_model_json
 from app.models.schemas import LLMConfigRequest, LLMStatus, LLMTestRequest, Product
@@ -54,24 +52,6 @@ class LLMGateway:
 
     async def test_connection(self, request: LLMTestRequest) -> dict:
         return await self.provider_gateway.test_connection(request)
-
-    async def classify_intent(self, input_data: IntentInput, session_id: str = "default") -> IntentOutput | None:
-        return await self._safe_structured_call(
-            task="intent_classification",
-            session_id=session_id,
-            schema=IntentOutput,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "你是电商 Agent 的意图分类器。只输出 json。"
-                        "intent 必须是 smalltalk/recommend_product/compare_products/cart_action/checkout/"
-                        "product_qa/travel_bundle/image_search/profile_action/unknown 之一。"
-                    ),
-                },
-                {"role": "user", "content": input_data.model_dump_json()},
-            ],
-        )
 
     async def parse_constraints(self, input_data: ConstraintInput, session_id: str = "default") -> ConstraintOutput | None:
         return await self._safe_structured_call(
@@ -123,6 +103,8 @@ class LLMGateway:
                     "你是 ShopGuide 的受控回答生成器。你只能基于 grounded_answer_packet 回答。"
                     "不要选择新商品，不要生成商品卡片，不要编造优惠、库存、销量、参数或承诺。"
                     "如果证据不足，明确说当前商品库缺少该信息。输出自然中文，简洁。"
+                    "直接给用户可读答案，不要输出自检、审稿、核对过程、输出规范、最终整理说明或两版重复答案。"
+                    "最多推荐 3 个商品，每个商品用一两句话说明价格和理由。"
                 ),
             },
             {"role": "user", "content": packet.model_dump_json()},
@@ -164,6 +146,8 @@ class LLMGateway:
                     "你是 ShopGuide 的受控回答生成器。你只能基于 grounded_answer_packet 回答。"
                     "不要选择新商品，不要生成商品卡片，不要编造优惠、库存、销量、参数或承诺。"
                     "如果证据不足，明确说当前商品库缺少该信息。输出自然中文，简洁。"
+                    "直接给用户可读答案，不要输出自检、审稿、核对过程、输出规范、最终整理说明或两版重复答案。"
+                    "最多推荐 3 个商品，每个商品用一两句话说明价格和理由。"
                 ),
             },
             {"role": "user", "content": packet.model_dump_json()},

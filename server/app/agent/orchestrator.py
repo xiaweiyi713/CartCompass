@@ -13,6 +13,8 @@ from app.agent.conversation_mode import ConversationModeRouter
 from app.agent.cart import CartService
 from app.agent.constraint_parser import ConstraintParser
 from app.agent.grounding_guard import GroundingGuard
+from app.agent.llm_output_sanitizer import LLMOutputSanitizer
+from app.agent.product_qa import ProductQAService
 from app.agent.recommendation_cache import RecommendationCache
 from app.agent.session_store import SessionStore
 from app.agent.travel_intent import parse_travel_context
@@ -47,6 +49,7 @@ class AgentOrchestrator:
         self.parser = ConstraintParser()
         self.llm = LLMGateway()
         self.guard = GroundingGuard()
+        self.output_sanitizer = LLMOutputSanitizer(self.guard)
         self.reply_cache = RecommendationCache()
         self.profiles = profiles or UserProfileService()
         self.planner = BudgetPlanner(products, self.parser, self.profiles)
@@ -54,6 +57,7 @@ class AgentOrchestrator:
         self.after_sale = AfterSalePolicyService()
         self.mode_router = ConversationModeRouter()
         self.weather = WeatherService()
+        self.product_qa = ProductQAService()
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[str]:
         trace_id = observability.start_trace(
@@ -214,7 +218,7 @@ class AgentOrchestrator:
             observability.increment("budget_plan_intents")
             observability.add_current_step("intent", {"name": "budget_plan"})
             profile, profile_updates = self.profiles.remember_scenario_from_message(request.session_id, message)
-            plan = self.planner.build(request.session_id, message)
+            plan = await asyncio.to_thread(self.planner.build, request.session_id, message)
             products = [item.product for item in plan.items] if plan else []
             session.pending_constraints = None
             session.pending_clarification = None
@@ -314,7 +318,8 @@ class AgentOrchestrator:
         session.pending_constraints = None
         session.pending_clarification = None
         session.constraints = constraints
-        products = self._business_rank_products(message, constraints, self.products.search(message, constraints, limit=12))[:5]
+        retrieved_products = await self._search_products(message, constraints, limit=12)
+        products = self._business_rank_products(message, constraints, retrieved_products)[:5]
         session.last_product_ids = [product.product_id for product in products]
 
         if not products:
@@ -339,6 +344,7 @@ class AgentOrchestrator:
             streamed_chunks: list[str] = []
             pending = ""
             emitted_prefix = False
+            answer_started = False
             stream_blocked = False
             async for chunk in self.llm.stream_recommendation_reply(message, products, constraints, session_id=request.session_id):
                 if not emitted_prefix:
@@ -349,16 +355,40 @@ class AgentOrchestrator:
                     streamed_chunks.append(prefix)
                     emitted_prefix = True
                 pending += chunk
-                if not self._should_flush_stream_segment(pending):
+                if not answer_started:
+                    answer_start = self.output_sanitizer.answer_start_index(pending)
+                    if answer_start is None:
+                        if self.output_sanitizer.is_internal_review_segment(pending):
+                            pending = ""
+                        elif len(pending) < 260:
+                            continue
+                        else:
+                            answer_started = True
+                    else:
+                        pending = pending[answer_start:]
+                        answer_started = True
+                        if not pending:
+                            continue
+                if not self.output_sanitizer.should_flush_stream_segment(pending):
                     continue
-                if not self._is_safe_stream_segment("".join(streamed_chunks), pending, products, constraints):
+                if self.output_sanitizer.is_internal_review_segment(pending):
+                    pending = ""
+                    continue
+                if not self.output_sanitizer.is_safe_stream_segment("".join(streamed_chunks), pending, products, constraints):
                     stream_blocked = True
                     break
                 streamed_chunks.append(pending)
+                has_streamed_tokens = True
                 yield {"event": "token", "data": pending}
                 pending = ""
             if pending and not stream_blocked:
-                if self._is_safe_stream_segment("".join(streamed_chunks), pending, products, constraints):
+                if not answer_started:
+                    answer_start = self.output_sanitizer.answer_start_index(pending)
+                    if answer_start is not None:
+                        pending = pending[answer_start:]
+                if self.output_sanitizer.is_internal_review_segment(pending):
+                    pending = ""
+                elif self.output_sanitizer.is_safe_stream_segment("".join(streamed_chunks), pending, products, constraints):
                     streamed_chunks.append(pending)
                     has_streamed_tokens = True
                     yield {"event": "token", "data": pending}
@@ -375,6 +405,7 @@ class AgentOrchestrator:
             elif streamed_text:
                 guarded = self.guard.validate(streamed_text, products, constraints)
                 if guarded:
+                    guarded = self.output_sanitizer.strip_internal_review_text(guarded)
                     reply = RecommendationReply(guarded, "llm")
                     self.reply_cache.set(
                         self._recommendation_cache_key(request.session_id, message, products, constraints),
@@ -407,6 +438,9 @@ class AgentOrchestrator:
         if parsed_constraints.category and parsed_constraints.sub_category:
             return parsed_constraints
         return base_constraints
+
+    async def _search_products(self, query: str, constraints: SearchConstraints, limit: int = 5):
+        return await asyncio.to_thread(self.products.search, query, constraints, limit)
 
     async def _refine_constraints_with_llm(self, session_id: str, message: str, session, parsed_constraints) -> object:
         if not self.llm.status(session_id).configured:
@@ -508,135 +542,6 @@ class AgentOrchestrator:
 
     def _is_travel_packing_intent(self, message: str) -> bool:
         return parse_travel_context(message).is_packing_request
-
-    def _travel_bundle_products(self, message: str, travel_plan: dict | None = None):
-        travel = parse_travel_context(message)
-        prefix = travel.query_prefix
-        default_queries = self._scenario_travel_queries(travel.scenario, prefix)
-        queries = default_queries
-        if travel_plan:
-            planned_queries = self._travel_plan_queries(travel_plan, prefix)
-            if planned_queries:
-                default_keys = {(payload.get("category"), payload.get("sub_category")) for _, payload, _ in default_queries}
-                missing_planned = [
-                    item
-                    for item in planned_queries
-                    if (item[1].get("category"), item[1].get("sub_category")) not in default_keys
-                ]
-                queries = default_queries + missing_planned
-        picked = []
-        seen: set[str] = set()
-        for query, payload, limit in queries:
-            constraints = self.parser.parse(query)
-            constraints.category = payload.get("category")
-            constraints.sub_category = payload.get("sub_category")
-            constraints.include_terms = []
-            results = self.products.search(f"{message} {query}", constraints, limit=limit)
-            if not results and constraints.sub_category:
-                relaxed_constraints = self.parser.parse(query)
-                relaxed_constraints.category = constraints.category
-                relaxed_constraints.sub_category = None
-                relaxed_constraints.include_terms = []
-                results = self.products.search(f"{message} {query}", relaxed_constraints, limit=limit)
-            for product in results:
-                if product.product_id in seen:
-                    continue
-                seen.add(product.product_id)
-                picked.append(product)
-                if len(picked) >= 5:
-                    return picked
-        return picked
-
-    def _scenario_travel_queries(self, scenario: str, prefix: str):
-        if "海边" in scenario:
-            return [
-                (f"{prefix} 高倍防水防汗清爽防晒 海边暴晒", {"category": "美妆护肤", "sub_category": "防晒"}, 1),
-                (f"{prefix} 速干 透气 轻薄 短袖 防晒衣", {"category": "服饰运动", "sub_category": "速干T恤"}, 1),
-                (f"{prefix} 遮阳 防晒 透气 帽子", {"category": "服饰运动", "sub_category": "帽子"}, 1),
-                (f"{prefix} 便携 快充 充电线 充电宝", {"category": "数码电子", "sub_category": "充电设备"}, 1),
-                (f"{prefix} 补水 维生素 饮料 补能", {"category": "食品饮料", "sub_category": "功能饮料"}, 1),
-            ]
-        if any(term in scenario for term in ["高原", "干燥"]):
-            return [
-                (f"{prefix} 高倍防晒 紫外线 户外 防晒", {"category": "美妆护肤", "sub_category": "防晒"}, 1),
-                (f"{prefix} 干燥 保湿 修护 屏障 面霜", {"category": "美妆护肤", "sub_category": "面霜"}, 1),
-                (f"{prefix} 徒步 防水 抓地 防风 户外鞋", {"category": "服饰运动", "sub_category": "徒步鞋"}, 1),
-                (f"{prefix} 长途 自驾 快充 大容量 充电", {"category": "数码电子", "sub_category": "充电设备"}, 1),
-                (f"{prefix} 长途 补能 独立包装 坚果 零食", {"category": "食品饮料", "sub_category": "坚果/零食"}, 1),
-            ]
-        if "寒冷" in scenario:
-            return [
-                (f"{prefix} 寒冷 干燥 保湿 修护 面霜", {"category": "美妆护肤", "sub_category": "面霜"}, 1),
-                (f"{prefix} 保暖 thermal brushed 卫衣 长裤", {"category": "服饰运动", "sub_category": "运动服饰"}, 1),
-                (f"{prefix} 防水 防滑 雪地 徒步鞋", {"category": "服饰运动", "sub_category": "徒步鞋"}, 1),
-                (f"{prefix} 热饮 黑咖啡 速溶 提神", {"category": "食品饮料", "sub_category": "咖啡"}, 1),
-                (f"{prefix} 低温 快充 充电设备 备用线", {"category": "数码电子", "sub_category": "充电设备"}, 1),
-            ]
-        if "差旅" in scenario:
-            return [
-                (f"{prefix} 商务 出差 氮化镓 快充 充电器 数据线", {"category": "数码电子", "sub_category": "充电设备"}, 2),
-                (f"{prefix} 通勤 轻量 双肩包 电脑包 收纳", {"category": "服饰运动", "sub_category": "背包"}, 1),
-                (f"{prefix} 会议 提神 黑咖啡 速溶", {"category": "食品饮料", "sub_category": "咖啡"}, 1),
-                (f"{prefix} 酒店 干燥 保湿 修护 面霜", {"category": "美妆护肤", "sub_category": "面霜"}, 1),
-            ]
-        if "城市观光" in scenario:
-            return [
-                (f"{prefix} 城市 暴走 轻量 双肩包 收纳", {"category": "服饰运动", "sub_category": "背包"}, 1),
-                (f"{prefix} 长时间步行 防水 舒适 运动鞋", {"category": "服饰运动", "sub_category": "运动鞋"}, 1),
-                (f"{prefix} 境外 转换 快充 数据线 充电设备", {"category": "数码电子", "sub_category": "充电设备"}, 1),
-                (f"{prefix} 城市观光 清爽 防晒", {"category": "美妆护肤", "sub_category": "防晒"}, 1),
-                (f"{prefix} 早起 行程 提神 咖啡", {"category": "食品饮料", "sub_category": "咖啡"}, 1),
-            ]
-        return [
-            (f"{prefix} 清爽 便携 防晒", {"category": "美妆护肤", "sub_category": "防晒"}, 1),
-            (f"{prefix} 轻量 收纳 背包", {"category": "服饰运动", "sub_category": "背包"}, 1),
-            (f"{prefix} 便携 舒适 运动鞋", {"category": "服饰运动", "sub_category": "运动鞋"}, 1),
-            (f"{prefix} 快充 充电设备", {"category": "数码电子", "sub_category": "充电设备"}, 1),
-            (f"{prefix} 独立包装 补能 零食", {"category": "食品饮料", "sub_category": "坚果/零食"}, 1),
-        ]
-
-    def _travel_plan_queries(self, travel_plan: dict, prefix: str):
-        slot_limits = {
-            ("美妆护肤", "防晒"): 2,
-            ("美妆护肤", "面霜"): 1,
-            ("美妆护肤", "精华"): 1,
-            ("服饰运动", None): 1,
-            ("服饰运动", "帽子"): 1,
-            ("服饰运动", "背包"): 1,
-            ("服饰运动", "徒步鞋"): 1,
-            ("服饰运动", "速干T恤"): 1,
-            ("服饰运动", "运动服饰"): 1,
-            ("服饰运动", "运动装备"): 1,
-            ("服饰运动", "运动鞋"): 1,
-            ("数码电子", "充电宝"): 1,
-            ("数码电子", "充电设备"): 1,
-            ("食品饮料", None): 1,
-            ("食品饮料", "功能饮料"): 1,
-            ("食品饮料", "咖啡"): 1,
-            ("食品饮料", "坚果/零食"): 1,
-            ("食品饮料", "方便食品"): 1,
-        }
-        queries = []
-        for slot in travel_plan.get("slots", [])[:5]:
-            if not isinstance(slot, dict):
-                continue
-            category = slot.get("category")
-            sub_category = slot.get("sub_category")
-            key = (category, sub_category)
-            if key not in slot_limits:
-                continue
-            search_terms = str(slot.get("search_terms") or "").strip()
-            role = str(slot.get("role") or "").strip()
-            if not search_terms:
-                continue
-            queries.append(
-                (
-                    f"{prefix} {role} {search_terms}",
-                    {"category": category, "sub_category": sub_category},
-                    slot_limits[key],
-                )
-            )
-        return queries
 
     def _travel_bundle_intro(
         self,
@@ -903,165 +808,11 @@ class AgentOrchestrator:
             return
 
         rag = self.products.get_rag(product.product_id)
-        text = self._product_qa_answer(message, product, rag)
+        text = self.product_qa.answer(message, product, rag)
         async for token in self._tokens(text):
             yield {"event": "token", "data": token}
         yield {"event": "products", "data": [product.model_dump()]}
         yield {"event": "done", "data": {"ok": True, "mode": "product_knowledge", "grounded_product_id": product.product_id}}
-
-    def _product_qa_answer(self, message: str, product, rag: dict) -> str:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-        prefix = f"我只基于商品库里的详情、FAQ、评论和来源回答。关于 {product.title[:28]}："
-        if any(term in compact for term in ["差评", "低分", "缺点", "吐槽", "问题", "评论", "评价", "口碑"]):
-            return f"{prefix}{self._review_summary(rag)}"
-        if any(term in compact for term in ["来源", "真实", "可靠", "证据", "哪里来", "采集"]):
-            return f"{prefix}{self._source_summary(product, rag)}"
-        if any(term in compact for term in ["规格", "版本", "颜色", "容量", "尺码", "怎么选", "如何选", "区别"]):
-            return f"{prefix}{self._sku_summary(product)}"
-        if any(term in compact for term in ["为什么", "推荐理由", "推荐它", "推荐这款", "为什么推荐"]):
-            return f"{prefix}{self._recommendation_reason(product, rag)}"
-        return f"{prefix}{self._attribute_answer(message, product, rag)}"
-
-    def _review_summary(self, rag: dict) -> str:
-        reviews = rag.get("user_reviews") if isinstance(rag.get("user_reviews"), list) else []
-        if not reviews:
-            return "这条商品数据暂时没有用户评论，所以我不能编造差评或口碑结论。建议把它当作来源信息较完整、但评论证据不足的候选。"
-        low_reviews = [
-            review
-            for review in reviews
-            if isinstance(review, dict) and float(review.get("rating") or 0) <= 3
-        ]
-        focus_reviews = low_reviews or [review for review in reviews if isinstance(review, dict)][:2]
-        snippets = []
-        for review in focus_reviews[:3]:
-            rating = review.get("rating", "?")
-            content = str(review.get("content") or "").strip()
-            if content:
-                snippets.append(f"{rating}星评论提到：{content[:58]}")
-        if low_reviews:
-            return f"共有 {len(reviews)} 条评论，其中 {len(low_reviews)} 条是3星及以下差评/低分评论。主要负反馈是" + "；".join(snippets) + "。"
-        return f"共有 {len(reviews)} 条评论，暂未看到3星及以下差评。可参考的评论反馈是" + "；".join(snippets) + "。"
-
-    def _source_summary(self, product, rag: dict) -> str:
-        parts = [f"当前可信依据来自 {product.source_name}。"]
-        if product.source_url:
-            parts.append(f"商品库记录了公开来源链接：{product.source_url}。")
-        faqs = rag.get("official_faq") if isinstance(rag.get("official_faq"), list) else []
-        for faq in faqs:
-            if not isinstance(faq, dict):
-                continue
-            answer = str(faq.get("answer") or "")
-            if any(term in answer for term in ["公开页面采集", "robots.txt", "不包含登录态", "公开商品信息"]):
-                parts.append(answer[:96])
-                break
-        if product.evidence:
-            parts.append("可核验片段包括：" + "；".join(product.evidence[:2]) + "。")
-        return "".join(parts)
-
-    def _sku_summary(self, product) -> str:
-        if not product.skus:
-            return "这款商品没有可选规格，按默认商品信息购买即可。"
-        price_values = [sku.price for sku in product.skus]
-        property_names = sorted({str(name) for sku in product.skus for name in sku.properties.keys()})
-        option_parts = []
-        for name in property_names[:4]:
-            values = list(dict.fromkeys(str(sku.properties.get(name)) for sku in product.skus if sku.properties.get(name)))
-            if values:
-                option_parts.append(f"{name}可选" + "、".join(values[:6]))
-        image_count = sum(1 for sku in product.skus if sku.image_url)
-        independent_image_count = sum(1 for sku in product.skus if sku.image_url and sku.image_url != product.image_url)
-        text = (
-            f"它有 {len(product.skus)} 个 SKU，价格约 {min(price_values):.0f}-{max(price_values):.0f} 元。"
-            + "；".join(option_parts)
-            + "。"
-        )
-        if independent_image_count:
-            text += f"其中 {independent_image_count} 个规格带有独立规格图，切换规格时可以用对应真实图片辅助判断。"
-        elif image_count:
-            text += "每个规格都会关联真实商品图片；当前商品库没有独立颜色图时，会复用真实商品主图，不生成或涂改假图。"
-        return text
-
-    def _recommendation_reason(self, product, rag: dict) -> str:
-        reasons = []
-        if product.reason:
-            reasons.append(product.reason)
-        reasons.extend(product.highlights[:2])
-        faq_reason = self._matching_faq_answer(["推荐理由", "适合", "主要"], rag)
-        if faq_reason:
-            reasons.append(faq_reason)
-        if product.average_rating:
-            reasons.append(f"评论均分约 {product.average_rating}，评论数 {product.review_count} 条")
-        return "推荐理由是：" + "；".join(list(dict.fromkeys(reasons))[:4]) + "。"
-
-    def _attribute_answer(self, message: str, product, rag: dict) -> str:
-        terms = self._qa_terms(message)
-        evidence = self._evidence_for_terms(terms, rag)
-        if evidence:
-            return "我在商品知识里找到了这些相关证据：" + "；".join(evidence[:4]) + "。"
-        if product.evidence:
-            return "商品库没有直接命中你问的细节。已知可核验信息是：" + "；".join(product.evidence[:3]) + "。如果你要，我可以继续按这个条件重新筛选其他商品。"
-        return "商品库没有足够证据回答这个细节，我不会编造。可以换成问评论、来源、规格，或让我重新筛选更匹配的商品。"
-
-    def _qa_terms(self, message: str) -> list[str]:
-        known_terms = [
-            "酒精",
-            "香精",
-            "敏感肌",
-            "油皮",
-            "干皮",
-            "防水",
-            "防汗",
-            "控油",
-            "搓泥",
-            "提亮",
-            "续航",
-            "拍照",
-            "游戏",
-            "快充",
-            "防晒",
-            "保湿",
-            "无糖",
-            "低糖",
-            "咖啡因",
-            "过敏",
-        ]
-        terms = [term for term in known_terms if term in message]
-        if not terms:
-            terms = [part for part in re.split(r"[，。！？,.!?\s]+", message) if len(part) >= 2][:3]
-        return terms
-
-    def _evidence_for_terms(self, terms: list[str], rag: dict) -> list[str]:
-        if not terms:
-            return []
-        candidates: list[str] = []
-        marketing = str(rag.get("marketing_description") or "")
-        if any(term in marketing for term in terms):
-            candidates.append(marketing[:120])
-        faqs = rag.get("official_faq") if isinstance(rag.get("official_faq"), list) else []
-        for faq in faqs:
-            if not isinstance(faq, dict):
-                continue
-            text = f"{faq.get('question', '')} {faq.get('answer', '')}".strip()
-            if any(term in text for term in terms):
-                candidates.append(str(faq.get("answer") or text)[:120])
-        reviews = rag.get("user_reviews") if isinstance(rag.get("user_reviews"), list) else []
-        for review in reviews:
-            if not isinstance(review, dict):
-                continue
-            content = str(review.get("content") or "")
-            if any(term in content for term in terms):
-                candidates.append(f"{review.get('rating', '?')}星评论：{content[:88]}")
-        return list(dict.fromkeys(item for item in candidates if item))[:5]
-
-    def _matching_faq_answer(self, terms: list[str], rag: dict) -> str | None:
-        faqs = rag.get("official_faq") if isinstance(rag.get("official_faq"), list) else []
-        for faq in faqs:
-            if not isinstance(faq, dict):
-                continue
-            text = f"{faq.get('question', '')} {faq.get('answer', '')}"
-            if any(term in text for term in terms):
-                return str(faq.get("answer") or "").strip()[:110]
-        return None
 
     def _compare_payload(self, products, message: str) -> dict:
         rows = [
@@ -1131,25 +882,12 @@ class AgentOrchestrator:
         )
         return RecommendationReply(cached.text, cached.source)
 
-    def _should_flush_stream_segment(self, text: str) -> bool:
-        if not text:
-            return False
-        return len(text) >= 32 or text[-1] in "。！？；;，,\n"
-
-    def _is_safe_stream_segment(self, emitted_text: str, pending_text: str, products, constraints) -> bool:
-        if not pending_text:
-            return True
-        return self.guard.is_safe(pending_text, products, constraints) and self.guard.is_safe(
-            emitted_text + pending_text,
-            products,
-            constraints,
-        )
-
     async def _response_text(self, session_id: str, message: str, products, constraints) -> RecommendationReply:
         fallback = RecommendationReply(self._fallback_response_text(message, products[:3], constraints), "fallback")
         llm_text = await self.llm.recommendation_reply(message, products, constraints, session_id=session_id)
         guarded = self.guard.validate(llm_text, products, constraints)
         if guarded:
+            guarded = self.output_sanitizer.strip_internal_review_text(guarded)
             reply = RecommendationReply(guarded, "llm")
             self.reply_cache.set(self._recommendation_cache_key(session_id, message, products, constraints), guarded, "llm")
             return reply

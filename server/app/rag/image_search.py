@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import math
 import time
@@ -38,6 +39,9 @@ class ImageSearchService:
         self._feature_cache: dict[str, ImageFeatures] = {}
         self.semantic_encoder = OptionalSemanticImageEncoder()
         self.image_understanding = OptionalVisionImageUnderstanding()
+
+    async def search_async(self, image_bytes: bytes, query: str = "", limit: int = 5) -> list[Product]:
+        return await asyncio.to_thread(self.search, image_bytes, query=query, limit=limit)
 
     def search(self, image_bytes: bytes, query: str = "", limit: int = 5) -> list[Product]:
         started_at = time.perf_counter()

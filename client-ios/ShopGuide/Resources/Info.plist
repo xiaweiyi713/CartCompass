@@ -35,6 +35,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>SHOPGUIDE_API_BASE_URL</key>
+	<string>http://127.0.0.1:8000</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>
