@@ -13,6 +13,7 @@ from app.agent.conversation_mode import ConversationModeRouter
 from app.agent.cart import CartService
 from app.agent.constraint_parser import ConstraintParser
 from app.agent.grounding_guard import GroundingGuard
+from app.agent.intent_rules import IntentRules
 from app.agent.llm_output_sanitizer import LLMOutputSanitizer
 from app.agent.product_qa import ProductQAService
 from app.agent.recommendation_cache import RecommendationCache
@@ -47,6 +48,7 @@ class AgentOrchestrator:
         self.cart = cart
         self.sessions = sessions
         self.parser = ConstraintParser()
+        self.intent = IntentRules()
         self.llm = LLMGateway()
         self.guard = GroundingGuard()
         self.output_sanitizer = LLMOutputSanitizer(self.guard)
@@ -96,7 +98,7 @@ class AgentOrchestrator:
         session = self.sessions.get(request.session_id)
         lowered = message.lower()
 
-        if self._is_profile_clear_intent(message):
+        if self.intent.is_profile_clear(message):
             profile = self.profiles.clear(request.session_id)
             session.pending_constraints = None
             session.pending_clarification = None
@@ -109,7 +111,7 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True}}
             return
 
-        if self._is_profile_view_intent(message):
+        if self.intent.is_profile_view(message):
             profile = self.profiles.get(request.session_id)
             observability.increment("profile_views")
             observability.add_current_step("profile", {"action": "view", "profile": profile.model_dump()})
@@ -119,7 +121,7 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True}}
             return
 
-        if self._is_profile_remember_intent(message):
+        if self.intent.is_profile_remember(message):
             profile, updates = self.profiles.remember_from_message(request.session_id, message)
             observability.increment("profile_updates")
             observability.add_current_step("profile", {"action": "remember", "updates": updates, "profile": profile.model_dump()})
@@ -179,35 +181,35 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True, "mode": "weak_purchase_intent", "needs_clarification": True}}
             return
 
-        if self._is_compare_intent(lowered):
+        if self.intent.is_compare(lowered):
             observability.increment("compare_intents")
             observability.add_current_step("intent", {"name": "compare", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_compare(message, session.last_product_ids):
                 yield event
             return
 
-        if self._is_cart_intent(lowered):
+        if self.intent.is_cart(lowered):
             observability.increment("cart_intents")
             observability.add_current_step("intent", {"name": "cart", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_cart(request.session_id, message, session.last_product_ids):
                 yield event
             return
 
-        if self._is_feedback_intent(message, session.last_product_ids):
+        if self.intent.is_feedback(message, session.last_product_ids):
             observability.increment("feedback_intents")
             observability.add_current_step("intent", {"name": "feedback", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_feedback(request.session_id, message, session.last_product_ids):
                 yield event
             return
 
-        if self._is_after_sale_intent(message):
+        if self.intent.is_after_sale(message):
             observability.increment("after_sale_policy_intents")
             observability.add_current_step("intent", {"name": "after_sale_policy", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_after_sale_policy(message, session.last_product_ids):
                 yield event
             return
 
-        if self._is_product_qa_intent(message, session.last_product_ids):
+        if self.intent.is_product_qa(message, session.last_product_ids):
             observability.increment("product_qa_intents")
             observability.add_current_step("intent", {"name": "product_qa", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_product_qa(message, session.last_product_ids):
@@ -614,7 +616,7 @@ class AgentOrchestrator:
         yield {"event": "done", "data": {"ok": True, "mode": "product_knowledge"}}
 
     async def _handle_weather(self, message: str) -> AsyncIterator[dict]:
-        location = self._weather_location(message)
+        location = self.intent.weather_location(message)
         if not location:
             text = "我需要先知道城市或目的地，才能查询实时天气。你可以直接问“成都今天天气怎么样”或“三亚明天适合户外吗”。"
         else:
@@ -654,21 +656,6 @@ class AgentOrchestrator:
             )
         return "我可以正常聊天，也可以在你有明确购买、比较、预算或加购需求时切换到导购模式。你可以继续说。"
 
-    def _is_weather_intent(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-        return "天气" in compact and any(term in compact for term in ["今天", "明天", "现在", "怎么样", "如何", "适合出门", "适合户外"])
-
-    def _weather_location(self, message: str) -> str | None:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        compact = compact.replace("今天天气怎么样", "").replace("明天天气怎么样", "")
-        compact = compact.replace("今天天气如何", "").replace("明天天气如何", "")
-        compact = compact.replace("现在天气怎么样", "").replace("天气怎么样", "").replace("天气如何", "")
-        compact = compact.replace("今天", "").replace("明天", "").replace("现在", "")
-        compact = compact.strip()
-        if not compact or compact in {"当地", "这里", "我这里"}:
-            return None
-        return compact
-
     def _product_knowledge_fallback(self, message: str) -> str:
         compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
         if "spf" in compact or "防晒" in compact:
@@ -696,7 +683,7 @@ class AgentOrchestrator:
         return "我先不急着推荐商品。你可以补充预算、使用场景、对象和不想要的条件；确认有购买需求后，我再进入导购模式。"
 
     async def _handle_cart(self, session_id: str, message: str, last_product_ids: list[str]) -> AsyncIterator[dict]:
-        target_id = self._target_product_id(message, last_product_ids)
+        target_id = self.intent.target_product_id(message, last_product_ids)
         if any(word in message for word in ["结算", "付款", "支付", "下单"]):
             state = self.cart.state(session_id)
             if state.items:
@@ -721,7 +708,7 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True, "mode": "transaction"}}
             return
 
-        quantity = self._quantity(message)
+        quantity = self.intent.quantity(message)
         if any(word in message for word in ["删", "移除", "不要了"]):
             state = self.cart.remove(session_id, target_id)
             text = "已从购物车移除这款商品。"
@@ -738,7 +725,7 @@ class AgentOrchestrator:
         yield {"event": "done", "data": {"ok": True, "mode": "transaction"}}
 
     async def _handle_feedback(self, session_id: str, message: str, last_product_ids: list[str]) -> AsyncIterator[dict]:
-        target_id = self._target_product_id(message, last_product_ids)
+        target_id = self.intent.target_product_id(message, last_product_ids)
         product = self.products.get(target_id) if target_id else None
         if not product:
             async for token in self._tokens("我还不知道你反馈的是哪款商品，可以先让我推荐几款，再说“第一款太贵了”或“换个品牌”。"):
@@ -746,7 +733,7 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True}}
             return
 
-        feedback = self._feedback_type(message)
+        feedback = self.intent.feedback_type(message)
         profile = self.profiles.record_feedback(session_id, product.product_id, feedback, message[:80])
         if feedback == "like":
             text = f"收到，我会把你喜欢 {product.brand} 这类商品记到反馈里。你可以继续让我对比、加购，或者说“找更便宜的”。"
@@ -774,7 +761,7 @@ class AgentOrchestrator:
         yield {"event": "done", "data": {"ok": True, "feedback": feedback}}
 
     async def _handle_after_sale_policy(self, message: str, last_product_ids: list[str]) -> AsyncIterator[dict]:
-        target_id = self._target_product_id(message, last_product_ids)
+        target_id = self.intent.target_product_id(message, last_product_ids)
         product = self.products.get(target_id) if target_id else None
         text = self.after_sale.answer(product, message)
         async for token in self._tokens(text):
@@ -799,7 +786,7 @@ class AgentOrchestrator:
         yield {"event": "done", "data": {"ok": True, "mode": "shopping_assist"}}
 
     async def _handle_product_qa(self, message: str, last_product_ids: list[str]) -> AsyncIterator[dict]:
-        target_id = self._target_product_id(message, last_product_ids)
+        target_id = self.intent.target_product_id(message, last_product_ids)
         product = self.products.get(target_id) if target_id else None
         if not product:
             async for token in self._tokens("我还没有可追问的商品。你可以先让我推荐几款，再问第一款的评论、来源或规格。"):
@@ -996,22 +983,22 @@ class AgentOrchestrator:
         return title if len(title) <= 28 else title[:28].rstrip() + "…"
 
     def _clarification_prompt(self, message: str, constraints, current_constraints) -> str | None:
-        if self._is_casual_no_preference(message) and constraints.category:
+        if self.intent.is_casual_no_preference(message) and constraints.category:
             return None
-        if self._has_specific_product_signal(message, constraints):
+        if self.intent.has_specific_product_signal(message, constraints):
             return None
         compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        if not constraints.category and self._is_vague_shopping_intent(compact):
-            if self._is_gift_intent(compact):
+        if not constraints.category and self.intent.is_vague_shopping(compact):
+            if self.intent.is_gift(compact):
                 return "可以，我先问清楚再推荐：是送给谁、什么场景或节日？对方更偏实用、数码、护肤美妆、运动户外还是零食礼盒？"
             return "可以，我先帮你缩小范围：这是自用还是送礼？预算大概多少？更想看数码、护肤美妆、服饰运动还是食品饮料？"
-        if self._has_enough_signal(current_constraints):
+        if self.intent.has_enough_signal(current_constraints):
             return None
-        if constraints.category == "数码电子" and self._is_broad_subcategory(constraints.sub_category, ["手机", "智能手机"]):
+        if constraints.category == "数码电子" and self.intent.is_broad_subcategory(constraints.sub_category, ["手机", "智能手机"]):
             return "可以，我先帮你缩小范围：你更看重拍照、续航、游戏性能还是性价比？预算大概是多少？"
         if constraints.category == "美妆护肤" and not (constraints.include_terms or constraints.exclude_terms or constraints.max_price):
             return "可以。你的肤质是油皮、干皮还是敏感肌？预算大概多少？有没有要避开的成分或品牌？"
-        if constraints.category == "服饰运动" and self._is_broad_message(compact):
+        if constraints.category == "服饰运动" and self.intent.is_broad_message(compact):
             return "可以。你更看重轻量、缓震、通勤百搭还是户外耐磨？预算大概是多少？"
         return None
 
@@ -1026,20 +1013,6 @@ class AgentOrchestrator:
         if compact in {"谢谢", "谢了", "thanks", "thankyou"}:
             return "不客气。你继续补充偏好、让我对比前两款，或者说把某一款加入购物车都可以。"
         return None
-
-    def _is_profile_remember_intent(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        return any(term in compact for term in ["记住", "以后", "下次"]) and any(
-            term in compact for term in ["不要", "预算", "油皮", "干皮", "敏感肌", "偏好", "喜欢", "排除", "避开"]
-        )
-
-    def _is_profile_view_intent(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        return compact in {"查看我的偏好", "我的偏好", "看看我的偏好", "用户画像", "我的用户画像"}
-
-    def _is_profile_clear_intent(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        return compact in {"清除我的偏好", "清空我的偏好", "删除我的偏好", "重置我的偏好", "清除我的所有偏好", "清空我的所有偏好"}
 
     def _profile_summary(self, profile) -> str:
         parts = []
@@ -1069,147 +1042,6 @@ class AgentOrchestrator:
         remaining_text = f"剩余预算约 {plan.remaining_budget:.0f} 元" if plan.remaining_budget >= 0 else f"超出预算约 {-plan.remaining_budget:.0f} 元"
         item_names = "、".join(item.product.title[:16] for item in plan.items[:4])
         return f"{prefix}我按预算和场景配了一套组合：{item_names}。总价约 {plan.total_price:.0f} 元，{remaining_text}。"
-
-    def _is_casual_no_preference(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-        return compact in {"随便", "都行", "不限", "你看着推荐", "看你推荐", "默认", "无所谓"}
-
-    def _is_vague_shopping_intent(self, compact: str) -> bool:
-        if len(compact) <= 2:
-            return False
-        vague_terms = [
-            "礼物",
-            "送人",
-            "送女生",
-            "送男生",
-            "送朋友",
-            "送女朋友",
-            "送男朋友",
-            "买点东西",
-            "买个东西",
-            "挑个东西",
-            "推荐点东西",
-            "随便推荐",
-            "实用的",
-        ]
-        action_terms = ["买", "推荐", "挑", "选", "送"]
-        return any(term in compact for term in vague_terms) and any(term in compact for term in action_terms)
-
-    def _is_gift_intent(self, compact: str) -> bool:
-        return any(
-            term in compact
-            for term in ["礼物", "送人", "送女生", "送男生", "送朋友", "送女朋友", "送男朋友", "生日", "纪念日"]
-        )
-
-    def _has_enough_signal(self, constraints) -> bool:
-        return bool(
-            constraints.max_price is not None
-            or constraints.min_price is not None
-            or constraints.include_terms
-            or constraints.exclude_terms
-            or constraints.exclude_brands
-        )
-
-    def _has_specific_product_signal(self, message: str, constraints) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-        if any(term in compact for term in ["苹果", "apple", "iphone", "华为", "huawei", "小米", "xiaomi", "oppo", "vivo"]):
-            return True
-        if constraints.category == "数码电子" and constraints.sub_category in {"手机", "智能手机"}:
-            if re.fullmatch(r"\d{2}", compact) or re.search(r"\d+\s*(?:pro|max|ultra|plus|pm)", compact, re.I):
-                return True
-        return False
-
-    def _is_broad_subcategory(self, sub_category: str | None, broad_values: list[str]) -> bool:
-        return sub_category in broad_values
-
-    def _is_broad_message(self, compact: str) -> bool:
-        return len(compact) <= 8 or compact in {"推荐衣服", "推荐运动", "推荐服饰", "推荐跑鞋"}
-
-    def _is_cart_intent(self, message: str) -> bool:
-        return any(word in message for word in ["购物车", "加购", "加入", "下单", "结算", "付款", "支付", "删除", "删掉", "清空", "数量", "改成"])
-
-    def _is_feedback_intent(self, message: str, last_product_ids: list[str]) -> bool:
-        if not last_product_ids:
-            return False
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        return any(term in compact for term in ["太贵", "便宜点", "平替", "高端", "升级", "换品牌", "换个品牌", "别的品牌", "不喜欢", "喜欢这款", "喜欢这个"])
-
-    def _is_after_sale_intent(self, message: str) -> bool:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        return any(term in compact for term in ["售后", "退换", "退货", "换货", "保修", "质保", "运费险", "七天无理由", "能退吗", "能换吗"])
-
-    def _feedback_type(self, message: str) -> str:
-        compact = re.sub(r"[\s，。！？,.!?]", "", message)
-        if any(term in compact for term in ["喜欢这款", "喜欢这个", "不错", "可以"]):
-            return "like"
-        if any(term in compact for term in ["太贵", "便宜点", "平替", "预算低"]):
-            return "too_expensive"
-        if any(term in compact for term in ["高端", "升级", "更好", "贵一点"]):
-            return "want_premium"
-        if any(term in compact for term in ["换品牌", "换个品牌", "别的品牌", "不要这个品牌"]):
-            return "change_brand"
-        return "dislike"
-
-    def _is_compare_intent(self, message: str) -> bool:
-        if any(word in message for word in ["对比", "比较", "哪个更", "哪款更", "前两款"]):
-            return True
-        return "区别" in message and any(left in message for left in ["第一", "1"]) and any(right in message for right in ["第二", "2"])
-
-    def _is_product_qa_intent(self, message: str, last_product_ids: list[str]) -> bool:
-        if not last_product_ids:
-            return False
-        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-        reference_terms = ["这款", "这个", "它", "第一款", "第一个", "第二款", "第二个", "第三款", "第三个", "上一款"]
-        qa_terms = [
-            "为什么",
-            "推荐理由",
-            "差评",
-            "低分",
-            "缺点",
-            "评论",
-            "评价",
-            "口碑",
-            "来源",
-            "真实",
-            "可靠",
-            "证据",
-            "规格",
-            "版本",
-            "颜色",
-            "容量",
-            "尺码",
-            "怎么选",
-            "如何选",
-            "区别",
-            "有没有",
-            "含不含",
-            "适合",
-            "防水",
-            "防汗",
-            "控油",
-            "搓泥",
-            "酒精",
-            "敏感肌",
-        ]
-        has_reference = any(term in compact for term in reference_terms) or re.search(
-            r"(?:第[123一二三](?:款|个)?|[123](?:款|个))", compact
-        ) is not None
-        has_question = any(term in compact for term in qa_terms)
-        short_followup = compact in {"为什么", "差评呢", "评论呢", "可靠吗", "怎么选", "有酒精吗"}
-        return (has_reference and has_question) or short_followup
-
-    def _target_product_id(self, message: str, last_product_ids: list[str]) -> str | None:
-        if not last_product_ids:
-            return None
-        number_map = {"第一": 0, "第一个": 0, "1": 0, "第二": 1, "第二个": 1, "2": 1, "第三": 2, "第三个": 2, "3": 2}
-        for word, idx in number_map.items():
-            if word in message and idx < len(last_product_ids):
-                return last_product_ids[idx]
-        return last_product_ids[0]
-
-    def _quantity(self, message: str) -> int:
-        match = re.search(r"(\d+)\s*(?:件|个|份|瓶|双|台)?", message)
-        return max(1, int(match.group(1))) if match else 1
 
     async def _tokens(self, text: str) -> AsyncIterator[str]:
         for chunk in self._stream_units(text):
