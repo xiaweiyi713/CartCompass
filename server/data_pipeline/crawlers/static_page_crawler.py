@@ -134,10 +134,15 @@ def _extract_product_jsonld(soup: BeautifulSoup) -> dict[str, Any]:
     return {}
 
 
+_PRODUCT_TYPES = {"Product", "ProductGroup"}
+
+
 def _find_product_node(data: Any) -> dict[str, Any]:
     if isinstance(data, dict):
         node_type = data.get("@type")
-        if node_type == "Product" or (isinstance(node_type, list) and "Product" in node_type):
+        if (isinstance(node_type, str) and node_type in _PRODUCT_TYPES) or (
+            isinstance(node_type, list) and _PRODUCT_TYPES.intersection(node_type)
+        ):
             return data
         for key in ("@graph", "itemListElement", "mainEntity"):
             found = _find_product_node(data.get(key))
@@ -178,6 +183,15 @@ def _jsonld_image(data: dict[str, Any]) -> str:
 
 def _jsonld_offer_value(data: dict[str, Any], key: str) -> str:
     offers = data.get("offers")
+    # Fallback for schema.org ProductGroup (e.g. Soundcore/Shopify), where the
+    # offer lives on the first variant rather than the top-level node.
+    if not offers:
+        variants = data.get("hasVariant")
+        if isinstance(variants, list):
+            for variant in variants:
+                if isinstance(variant, dict) and variant.get("offers"):
+                    offers = variant.get("offers")
+                    break
     if isinstance(offers, list) and offers:
         offers = offers[0]
     if isinstance(offers, dict):

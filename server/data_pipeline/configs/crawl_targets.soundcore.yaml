@@ -1,0 +1,23 @@
+sources:
+  - name: soundcore_official_store
+    base_url: "https://www.soundcore.com"
+    category: "数码电子"
+    sub_category: "真无线耳机"
+    delay_seconds: [1.2, 2.0]
+    selectors:
+      name: "h1"
+      price: ""
+      description: ""
+      image: ""
+      rating: ""
+      review_count: ""
+    urls:
+      - "https://www.soundcore.com/products/a3957-liberty-5-tws-earbuds"
+      - "https://www.soundcore.com/products/a3954-liberty-4-pro-tws-earbuds"
+      - "https://www.soundcore.com/products/a3937-p41i-ture-wireless-earbuds"
+      - "https://www.soundcore.com/products/a3968-sport-x20-earbuds"
+      - "https://www.soundcore.com/products/a3875-aerofit-2-pro-open-ear-earbuds-with-anc"
+      - "https://www.soundcore.com/products/a3874-aerofit-2-open-earbuds"
+      - "https://www.soundcore.com/products/a3878-v40i-open-earbuds"
+      - "https://www.soundcore.com/products/a3388-aeroclip-open-earbuds"
+      - "https://www.soundcore.com/products/a3331-c40i-clip-earbuds"

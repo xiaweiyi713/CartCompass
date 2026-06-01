@@ -20,7 +20,11 @@ struct ChatView: View {
     @State private var speechOutput = SpeechOutputController()
     @State private var isListening = false
     @State private var isSpeechOutputEnabled = false
-    @Environment(\.colorScheme) private var colorScheme
+    @State private var showsSidebar = false
+    @State private var showsVoiceSettings = false
+    @AppStorage("voice.rate.v1") private var speechRate = 0.92
+    @AppStorage("voice.voiceId.v1") private var speechVoiceId = ""
+    @AppStorage("voice.loop.v1") private var voiceLoopEnabled = false
 
     private let prompts = [
         "推荐手机",
@@ -39,129 +43,67 @@ struct ChatView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                ModeStatusBar(label: model.conversationModeLabel, isStreaming: model.isStreaming)
+            ZStack {
+                LiquidBackdrop()
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 14) {
-                            ForEach(model.messages) { message in
-                                MessageRow(
-                                    message: message,
-                                    path: $path,
-                                    addToCart: { product, sku in
-                                        Haptics.success()
-                                        model.addToCart(product, sku: sku)
-                                    },
-                                    sendPrompt: { prompt in
-                                        Haptics.light()
-                                        model.sendQuickPrompt(prompt)
-                                    }
-                                )
-                                    .id(message.id)
-                            }
-                            if model.messages.count <= 1 {
-                                WelcomeActionPanel(actions: welcomeActions) { prompt in
-                                    Haptics.light()
-                                    model.sendQuickPrompt(prompt)
-                                }
-                                .id("welcome-actions")
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 18)
-                        .padding(.bottom, 12)
-                    }
-                    .scrollContentBackground(.hidden)
-                    .onChange(of: model.messages.count) {
-                        if let id = model.messages.last?.id {
-                            withAnimation(.snappy) {
-                                proxy.scrollTo(id, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
+                GeometryReader { proxy in
+                    let drawerWidth = min(max(proxy.size.width * 0.76, 280), 340)
+                    let exposedWidth = max(proxy.size.width - drawerWidth, 0)
+                    let drawerHeight = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
+                    let drawerYOffset = -proxy.safeAreaInsets.top
 
-                QuickPromptBar(prompts: prompts) { prompt in
-                    model.sendQuickPrompt(prompt)
-                }
+                    ZStack(alignment: .leading) {
+                        chatMainLayer
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .offset(x: showsSidebar ? drawerWidth : 0)
+                            .blur(radius: showsSidebar ? 4.5 : 0, opaque: false)
+                            .brightness(showsSidebar ? -0.08 : 0)
+                            .scaleEffect(showsSidebar ? 0.985 : 1, anchor: .leading)
+                            .allowsHitTesting(!showsSidebar)
 
-                ComposerView(
-                    text: $model.inputText,
-                    selectedPhoto: $selectedPhoto,
-                    isStreaming: model.isStreaming,
-                    isImageSearching: model.isImageSearching,
-                    isListening: isListening,
-                    openCamera: {
-                        Haptics.light()
-                        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-                            Haptics.warning()
-                            model.errorMessage = "当前设备不支持摄像头拍摄，可以改用相册上传。"
-                            return
+                        ZStack(alignment: .topLeading) {
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: drawerWidth, height: drawerHeight)
+                                .offset(y: drawerYOffset)
+
+                            SidebarView(
+                                model: model,
+                                isOpen: $showsSidebar,
+                                openProfile: { showsSidebar = false; showsProfile = true; model.loadProfile() },
+                                openModelBrain: { showsSidebar = false; showsModelBrain = true; model.loadLLMStatus() },
+                                openPrivacy: { showsSidebar = false; showsPrivacy = true }
+                            )
+                            .frame(width: drawerWidth, height: proxy.size.height, alignment: .topLeading)
                         }
-                        showsCamera = true
-                    },
-                    toggleSpeech: {
-                        toggleSpeechInput()
+                        .frame(width: drawerWidth, height: proxy.size.height, alignment: .topLeading)
+                        .overlay(alignment: .trailing) {
+                            Rectangle()
+                                .fill(Theme.Color.cardStroke)
+                                .frame(width: 1, height: drawerHeight)
+                                .offset(y: drawerYOffset)
+                        }
+                        .shadow(color: .black.opacity(showsSidebar ? 0.2 : 0), radius: 24, x: 8, y: 0)
+                        .offset(x: showsSidebar ? 0 : -drawerWidth)
+
+                        if showsSidebar {
+                            Button(action: closeSidebar) {
+                                Color.clear
+                                    .frame(width: exposedWidth, height: drawerHeight)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: drawerWidth, y: drawerYOffset)
+                            .accessibilityLabel("返回聊天")
+                        }
                     }
-                ) {
-                    Haptics.light()
-                    model.send()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
                 }
             }
-            .background(AppBackdrop())
-            .navigationTitle("智能导购")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 10) {
-                        Button {
-                            showsProfile = true
-                            model.loadProfile()
-                        } label: {
-                            Image(systemName: model.profile.isEmpty ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
-                                .font(.system(size: 21, weight: .semibold))
-                        }
-                        .accessibilityLabel("我的偏好")
-
-                        Button {
-                            showsModelBrain = true
-                            model.loadLLMStatus()
-                        } label: {
-                            Image(systemName: model.llmStatus.configured ? "brain" : "brain.head.profile")
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        .accessibilityLabel("模型大脑")
-
-                        Button {
-                            Haptics.light()
-                            isSpeechOutputEnabled.toggle()
-                            if !isSpeechOutputEnabled {
-                                speechOutput.stop()
-                            }
-                        } label: {
-                            Image(systemName: isSpeechOutputEnabled ? "speaker.wave.2.fill" : "speaker.slash")
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        .accessibilityLabel(isSpeechOutputEnabled ? "关闭回复朗读" : "开启回复朗读")
-
-                        Button {
-                            showsPrivacy = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        .accessibilityLabel("隐私与合规")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showsCart = true
-                    } label: {
-                        CartToolbarLabel(count: model.cart.items.reduce(0) { $0 + $1.quantity })
-                    }
-                    .accessibilityLabel("购物车")
-                }
-            }
+            .animation(.interactiveSpring(response: 0.52, dampingFraction: 0.9, blendDuration: 0.12), value: showsSidebar)
+            .toolbar(.hidden, for: .navigationBar)
+            .sensoryFeedback(.impact(weight: .light), trigger: model.isStreaming)
+            .sensoryFeedback(.warning, trigger: model.errorMessage)
             .sheet(isPresented: $showsCart) {
                 CartView(
                     cart: model.cart,
@@ -199,6 +141,19 @@ struct ChatView: View {
             .sheet(isPresented: $showsPrivacy) {
                 PrivacyComplianceView()
             }
+            .sheet(isPresented: $showsVoiceSettings) {
+                VoiceSettingsView(
+                    rate: $speechRate,
+                    voiceId: $speechVoiceId,
+                    loopEnabled: $voiceLoopEnabled,
+                    previewVoice: {
+                        speechOutput.rateMultiplier = Float(speechRate)
+                        speechOutput.voiceIdentifier = speechVoiceId.isEmpty ? nil : speechVoiceId
+                        speechOutput.speak("你好，我是你的导购助手，这是当前的语速和音色效果。")
+                    }
+                )
+                .presentationDetents([.medium, .large])
+            }
             .sheet(isPresented: $showsCamera) {
                 CameraCaptureView { data in
                     cameraImageData = data
@@ -207,13 +162,11 @@ struct ChatView: View {
             }
             .navigationDestination(for: Product.self) { product in
                 ProductDetailView(product: product) { sku in
-                    Haptics.success()
                     model.addToCart(product, sku: sku)
                 }
             }
             .alert("请求失败", isPresented: .constant(model.errorMessage != nil)) {
                 Button("知道了") {
-                    Haptics.light()
                     model.errorMessage = nil
                 }
             } message: {
@@ -248,6 +201,8 @@ struct ChatView: View {
             }
             .onChange(of: model.speechOutputText) { _, text in
                 guard isSpeechOutputEnabled, let text else { return }
+                speechOutput.rateMultiplier = Float(speechRate)
+                speechOutput.voiceIdentifier = speechVoiceId.isEmpty ? nil : speechVoiceId
                 speechOutput.speak(text)
             }
             .onOpenURL { url in
@@ -257,11 +212,115 @@ struct ChatView: View {
         }
     }
 
+    private var chatMainLayer: some View {
+        ZStack {
+            LiquidBackdrop()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(model.messages) { message in
+                            MessageRow(
+                                message: message,
+                                path: $path,
+                                addToCart: { product, sku in
+                                    model.addToCart(product, sku: sku)
+                                },
+                                sendPrompt: { prompt in
+                                    model.sendQuickPrompt(prompt)
+                                },
+                                isStreaming: model.isStreaming
+                                    && message.role == .assistant
+                                    && message.id == model.messages.last?.id
+                            )
+                            .id(message.id)
+                        }
+                        if model.messages.count <= 1 {
+                            WelcomeActionPanel(actions: welcomeActions) { prompt in
+                                model.sendQuickPrompt(prompt)
+                            }
+                            .id("welcome-actions")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                    .padding(.bottom, 12)
+                }
+                .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
+                .contentMargins(.top, 74, for: .scrollContent)
+                .contentMargins(.bottom, 168, for: .scrollContent)
+                .onChange(of: model.messages.count) {
+                    if let id = model.messages.last?.id {
+                        withAnimation(.snappy) {
+                            proxy.scrollTo(id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .top) {
+            ChatTopBar(
+                cartCount: model.cart.items.reduce(0) { $0 + $1.quantity },
+                isSpeechOn: isSpeechOutputEnabled,
+                openSidebar: { withAnimation(Theme.Motion.spring) { showsSidebar = true } },
+                toggleSpeech: {
+                    isSpeechOutputEnabled.toggle()
+                    if !isSpeechOutputEnabled { speechOutput.stop() }
+                },
+                openVoiceSettings: { showsVoiceSettings = true },
+                openCart: { showsCart = true }
+            )
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 8) {
+                if isListening {
+                    ListeningBanner(
+                        partialText: model.inputText,
+                        isVoiceLoop: voiceLoopEnabled,
+                        stop: { toggleSpeechInput() }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                QuickPromptBar(prompts: prompts) { prompt in
+                    model.sendQuickPrompt(prompt)
+                }
+                ComposerView(
+                    text: $model.inputText,
+                    selectedPhoto: $selectedPhoto,
+                    isStreaming: model.isStreaming,
+                    isImageSearching: model.isImageSearching,
+                    isListening: isListening,
+                    openCamera: {
+                        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+                            model.errorMessage = "当前设备不支持摄像头拍摄，可以改用相册上传。"
+                            return
+                        }
+                        showsCamera = true
+                    },
+                    toggleSpeech: {
+                        toggleSpeechInput()
+                    }
+                ) {
+                    model.send()
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
+            .animation(.snappy(duration: 0.24), value: isListening)
+        }
+    }
+
+    private func closeSidebar() {
+        withAnimation(.interactiveSpring(response: 0.52, dampingFraction: 0.9, blendDuration: 0.12)) {
+            showsSidebar = false
+        }
+    }
+
     private func toggleSpeechInput() {
         if isListening {
             speechInput.stop()
             isListening = false
-            Haptics.light()
             return
         }
         speechInput.start(
@@ -274,24 +333,62 @@ struct ChatView: View {
             },
             onFinish: {
                 isListening = false
+                // Hands-free voice loop: once recognition settles, auto-send the
+                // recognised text and read the reply aloud so the user can keep
+                // the whole exchange voice-only.
+                guard voiceLoopEnabled else { return }
+                let recognised = model.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !recognised.isEmpty, !model.isStreaming else { return }
+                isSpeechOutputEnabled = true
+                model.send()
             }
         )
         isListening = true
-        Haptics.light()
     }
 }
 
-private enum Haptics {
-    static func light() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+private struct ChatTopBar: View {
+    let cartCount: Int
+    let isSpeechOn: Bool
+    let openSidebar: () -> Void
+    let toggleSpeech: () -> Void
+    let openVoiceSettings: () -> Void
+    let openCart: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Button(action: openSidebar) { topGlyph("sidebar.leading") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("菜单与历史")
+                Button(action: toggleSpeech) { topGlyph(isSpeechOn ? "speaker.wave.2.fill" : "speaker.slash") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isSpeechOn ? "关闭回复朗读" : "开启回复朗读")
+                    .simultaneousGesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in openVoiceSettings() })
+                    .contextMenu {
+                        Button { openVoiceSettings() } label: {
+                            Label("语音设置", systemImage: "slider.horizontal.3")
+                        }
+                    }
+            }
+            Spacer()
+            Button(action: openCart) { CartToolbarLabel(count: cartCount) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("购物车")
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
     }
 
-    static func success() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
-
-    static func warning() {
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    private func topGlyph(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 40, height: 40)
+            .background(.ultraThinMaterial, in: .circle)
+            .overlay(Circle().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+            .contentShape(.rect)
     }
 }
 
@@ -478,6 +575,11 @@ private final class SpeechInputController: NSObject {
 private final class SpeechOutputController: NSObject {
     private let synthesizer = AVSpeechSynthesizer()
 
+    /// Playback rate as a multiplier of the system default (0.5–1.5).
+    var rateMultiplier: Float = 0.92
+    /// Specific voice identifier; falls back to the default zh-CN voice when nil.
+    var voiceIdentifier: String?
+
     func speak(_ text: String) {
         let compact = text
             .replacingOccurrences(of: "\n", with: " ")
@@ -485,13 +587,132 @@ private final class SpeechOutputController: NSObject {
         guard !compact.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: String(compact.prefix(220)))
-        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92
+        if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
+            utterance.voice = voice
+        } else {
+            utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        }
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * min(max(rateMultiplier, 0.5), 1.5)
         synthesizer.speak(utterance)
     }
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    /// Chinese voices available on the current device, for the settings picker.
+    static func availableChineseVoices() -> [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("zh") }
+            .sorted { $0.name < $1.name }
+    }
+}
+
+private struct ListeningBanner: View {
+    let partialText: String
+    let isVoiceLoop: Bool
+    let stop: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "waveform")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.Color.accent)
+                .symbolEffect(.variableColor.iterative, options: .repeating)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isVoiceLoop ? "正在聆听 · 语音连续对话" : "正在聆听…")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(partialText.isEmpty ? "请开始说话，我会实时转写" : partialText)
+                    .font(.callout)
+                    .foregroundStyle(partialText.isEmpty ? .secondary : .primary)
+                    .lineLimit(2)
+                    .animation(.snappy, value: partialText)
+            }
+            Spacer(minLength: 8)
+            Button(action: stop) {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.Color.onAccent)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.Color.accent, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("停止聆听")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .liquidGlass(radius: Theme.Radius.md, elevated: true)
+    }
+}
+
+private struct VoiceSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var rate: Double
+    @Binding var voiceId: String
+    @Binding var loopEnabled: Bool
+    let previewVoice: () -> Void
+
+    private let voices = SpeechOutputController.availableChineseVoices()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("朗读语速") {
+                    Slider(value: $rate, in: 0.5...1.5, step: 0.02) {
+                        Text("语速")
+                    } minimumValueLabel: {
+                        Image(systemName: "tortoise")
+                    } maximumValueLabel: {
+                        Image(systemName: "hare")
+                    }
+                    Text(String(format: "当前：%.2f×", rate))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Section("朗读音色") {
+                    Picker("音色", selection: $voiceId) {
+                        Text("系统默认（中文）").tag("")
+                        ForEach(voices, id: \.identifier) { voice in
+                            Text(voiceLabel(voice)).tag(voice.identifier)
+                        }
+                    }
+                    if voices.isEmpty {
+                        Text("未检测到额外中文语音，可在「设置 › 辅助功能 › 朗读内容 › 声音」中下载更多音色。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    Toggle("语音连续对话", isOn: $loopEnabled)
+                    Text("开启后，说完会自动发送并朗读回复，全程免手动操作。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Section {
+                    Button(action: previewVoice) {
+                        Label("试听当前语速与音色", systemImage: "play.circle.fill")
+                    }
+                }
+            }
+            .navigationTitle("语音设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func voiceLabel(_ voice: AVSpeechSynthesisVoice) -> String {
+        let quality: String
+        switch voice.quality {
+        case .premium: quality = "（高级）"
+        case .enhanced: quality = "（增强）"
+        default: quality = ""
+        }
+        return "\(voice.name)\(quality)"
     }
 }
 
@@ -500,6 +721,7 @@ private struct MessageRow: View {
     @Binding var path: [Product]
     let addToCart: (Product, SKU?) -> Void
     let sendPrompt: (String) -> Void
+    var isStreaming = false
 
     var body: some View {
         switch message.role {
@@ -508,47 +730,32 @@ private struct MessageRow: View {
                 Spacer(minLength: 48)
                 Text(message.text)
                     .font(.callout)
+                    .foregroundStyle(Theme.Color.onAccent)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 11)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.78)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .shadow(color: Color.accentColor.opacity(0.18), radius: 10, y: 4)
+                    .background(Theme.Color.accent, in: .rect(cornerRadius: 20))
             }
         case .assistant:
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "sparkles")
+                Image(systemName: "sparkle")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Color.onAccent)
                     .frame(width: 30, height: 30)
-                    .background(
-                        LinearGradient(
-                            colors: [.indigo, .teal],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(Circle())
+                    .background(Theme.Color.accent, in: .circle)
                 if message.text.isEmpty {
                     AssistantThinkingBubble()
                 } else {
-                    Text(message.text)
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .padding(13)
-                        .background(Theme.Color.cardBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.primary.opacity(0.08), lineWidth: 0.7)
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .leading)))
+                    HStack(alignment: .bottom, spacing: 3) {
+                        Text(message.text)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                        if isStreaming {
+                            StreamingCaret()
+                        }
+                    }
+                    .padding(13)
+                    .liquidGlass(radius: Theme.Radius.md, elevated: false)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .leading)))
                 }
                 Spacer(minLength: 24)
             }
@@ -589,9 +796,9 @@ private struct WeatherCard: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: weatherIcon)
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.Color.onAccent)
                 .frame(width: 30, height: 30)
-                .background(Color.blue.gradient, in: Circle())
+                .background(Theme.Color.accent, in: .circle)
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
@@ -637,11 +844,7 @@ private struct WeatherCard: View {
                 }
             }
             .padding(13)
-            .background(Theme.Color.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.blue.opacity(0.18), lineWidth: 1)
-            )
+            .liquidGlass(radius: Theme.Radius.md, elevated: false)
 
             Spacer(minLength: 18)
         }
@@ -650,11 +853,7 @@ private struct WeatherCard: View {
     @ViewBuilder
     private var weatherTags: some View {
         ForEach(weather.implications.tags.prefix(4), id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(Color.blue.opacity(0.12), in: Capsule())
+            GlassTag(text: tag)
         }
     }
 
@@ -698,16 +897,8 @@ private struct FallbackCard: View {
     let notice: FallbackNotice
     let sendPrompt: (String) -> Void
 
-    private var tint: Color {
-        switch notice.severity {
-        case "error":
-            return .red
-        case "warning":
-            return .orange
-        default:
-            return .teal
-        }
-    }
+    // Monochrome brand: severity is conveyed by the icon glyph + copy, not hue.
+    private var tint: Color { Theme.Color.accent }
 
     private var icon: String {
         switch notice.code {
@@ -730,9 +921,9 @@ private struct FallbackCard: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.Color.onAccent)
                 .frame(width: 30, height: 30)
-                .background(tint.gradient, in: Circle())
+                .background(Theme.Color.accent, in: .circle)
 
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 5) {
@@ -749,11 +940,7 @@ private struct FallbackCard: View {
                 }
             }
             .padding(13)
-            .background(Theme.Color.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(tint.opacity(0.22), lineWidth: 1)
-            )
+            .liquidGlass(radius: Theme.Radius.md, elevated: false)
 
             Spacer(minLength: 18)
         }
@@ -796,34 +983,6 @@ private struct FlowActionButtons: View {
     }
 }
 
-private struct AppBackdrop: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        LinearGradient(
-            colors: colorScheme == .dark ? darkColors : lightColors,
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
-    }
-
-    private var lightColors: [Color] {
-        [
-            Color(.systemBackground),
-            Color(.secondarySystemBackground),
-            Color(red: 0.94, green: 0.97, blue: 0.98)
-        ]
-    }
-
-    private var darkColors: [Color] {
-        [
-            Color(red: 0.04, green: 0.055, blue: 0.065),
-            Color(red: 0.075, green: 0.095, blue: 0.105),
-            Color(red: 0.055, green: 0.085, blue: 0.09)
-        ]
-    }
-}
 
 private struct CartToolbarLabel: View {
     let count: Int
@@ -853,9 +1012,11 @@ private struct CartToolbarLabel: View {
                     .offset(x: 2, y: -2)
                     .transition(.scale.combined(with: .opacity))
                     .contentTransition(.numericText())
-            }
+                }
         }
-        .frame(width: 38, height: 34, alignment: .center)
+        .frame(width: 44, height: 44, alignment: .center)
+        .background(.ultraThinMaterial, in: .circle)
+        .overlay(Circle().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
         .contentShape(Rectangle())
         .animation(.snappy(duration: 0.2), value: count)
     }
@@ -881,15 +1042,31 @@ private struct AssistantThinkingBubble: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
-        .background(Theme.Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 0.7)
-        )
+        .liquidGlass(radius: Theme.Radius.md, elevated: false)
         .onAppear {
             phase = true
         }
         .accessibilityLabel("正在思考")
+    }
+}
+
+/// Blinking text caret shown at the tail of a streaming assistant message.
+/// Falls back to a steady bar when Reduce Motion is on.
+private struct StreamingCaret: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = true
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1)
+            .fill(Theme.Color.accent)
+            .frame(width: 2.5, height: 16)
+            .opacity(visible ? 1 : 0)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
+                    visible = false
+                }
+            }
+            .accessibilityHidden(true)
     }
 }

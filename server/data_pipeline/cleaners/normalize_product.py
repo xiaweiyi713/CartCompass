@@ -37,6 +37,20 @@ def normalize_products(
     return products
 
 
+def _clean_display_title(title: str) -> str:
+    """Trim marketing taglines off a crawled product name (e.g.
+    "soundcore Liberty 5 | Noise-Cancelling Earbuds" -> "soundcore Liberty 5").
+    The full text is still used for attribute/category enrichment and the
+    marketing description, so nothing is lost for retrieval."""
+    text = (title or "").strip()
+    for sep in ("｜", "|", " – ", " — ", " - "):
+        if sep in text:
+            head = text.split(sep, 1)[0].strip()
+            if len(head) >= 4:
+                return head
+    return text
+
+
 def normalize_product(
     item: dict[str, Any],
     index: int,
@@ -44,6 +58,7 @@ def normalize_product(
     currency_rates_to_cny: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     title = _pick(item, "title", "name")
+    display_title = _clean_display_title(title)
     description = _pick(item, "description")
     brand = _pick(item, "brand") or _source_brand(item) or _guess_brand(title)
     source_price = parse_price(item.get("price") or item.get("price_text"))
@@ -58,7 +73,7 @@ def normalize_product(
 
     return {
         "product_id": product_id,
-        "title": title,
+        "title": display_title,
         "brand": brand,
         "category": category,
         "sub_category": sub_category,
