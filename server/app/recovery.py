@@ -11,7 +11,7 @@ def notice(kind: str, message: str | None = None, actions: list[RecoveryAction] 
             title="模型连接暂时不可用",
             message="我已自动切换到本地商品检索和规则兜底，你可以继续使用导购功能。",
             actions=[
-                RecoveryAction(label="检查模型配置", prompt="打开模型大脑设置"),
+                RecoveryAction(label="检查模型配置", prompt="打开对话模型设置"),
                 RecoveryAction(label="继续本地导购", prompt="推荐手机"),
             ],
             severity="warning",
@@ -21,7 +21,7 @@ def notice(kind: str, message: str | None = None, actions: list[RecoveryAction] 
             title="模型配置没有通过测试",
             message="当前 API Key、模型名或端点不可用，暂时不会切换 Agent 大脑。你仍然可以继续使用本地检索、RAG 和规则导购。",
             actions=[
-                RecoveryAction(label="检查 Key/端点", prompt="打开模型大脑设置"),
+                RecoveryAction(label="检查 Key/端点", prompt="打开对话模型设置"),
                 RecoveryAction(label="继续本地导购", prompt="推荐手机"),
             ],
             severity="warning",

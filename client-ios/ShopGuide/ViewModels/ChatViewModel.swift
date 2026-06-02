@@ -411,18 +411,31 @@ final class ChatViewModel {
         let key = sanitizedLLMAPIKey()
         guard !key.isEmpty, !isLLMUpdating else { return }
         isLLMUpdating = true
+        llmTestMessage = nil
         Task {
             do {
+                // Validate the key before applying it: a bad key must never replace
+                // the working backend default. If the probe fails we skip configure(),
+                // so this session keeps falling back to the server's key.
+                let probe = try await llmService.test(sessionID: sessionID, provider: provider, apiKey: key, model: llmModel, baseURL: llmBaseURL)
+                guard probe.ok else {
+                    await MainActor.run {
+                        llmTestMessage = "校验未通过，已保留默认对话模型：\(probe.message)"
+                        appendRecoveryNotice(probe.fallback ?? .modelConfigFailure(message: probe.message))
+                        isLLMUpdating = false
+                    }
+                    return
+                }
                 let status = try await llmService.configure(sessionID: sessionID, provider: provider, apiKey: key, model: llmModel, baseURL: llmBaseURL)
                 await MainActor.run {
                     llmStatus = status
-                    llmTestMessage = status.configured ? "已启用 \(displayName) 作为当前会话模型大脑。" : "模型配置未启用。"
-                    messages.append(ChatMessage(role: .assistant, text: "已切换到 \(displayName) / \(status.model ?? llmModel) 模型大脑。RAG、工具调用和防幻觉检查仍由后端统一控制。"))
+                    llmTestMessage = status.configured ? "已启用 \(displayName) 作为当前会话对话模型。" : "模型配置未启用。"
+                    messages.append(ChatMessage(role: .assistant, text: "已切换到 \(displayName) / \(status.model ?? llmModel) 对话模型。RAG、工具调用和防幻觉检查仍由后端统一控制。"))
                     isLLMUpdating = false
                 }
             } catch {
                 await MainActor.run {
-                    llmTestMessage = "保存失败：\(error.localizedDescription)"
+                    llmTestMessage = "保存失败，已保留默认对话模型：\(error.localizedDescription)"
                     appendRecoveryNotice(.from(error, defaultNotice: .modelConfigFailure(message: "保存失败：\(error.localizedDescription)")))
                     isLLMUpdating = false
                 }
@@ -644,7 +657,7 @@ private extension FallbackNotice {
             title: "模型配置没有通过测试",
             message: message,
             actions: [
-                RecoveryAction(label: "检查 Key/端点", prompt: "打开模型大脑设置"),
+                RecoveryAction(label: "检查 Key/端点", prompt: "打开对话模型设置"),
                 RecoveryAction(label: "继续本地导购", prompt: "推荐手机")
             ],
             severity: "warning"

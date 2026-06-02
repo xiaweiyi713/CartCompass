@@ -645,7 +645,7 @@ def test_chat_stream_model_identity_is_smalltalk_without_products() -> None:
     text = response.text
     token_text = _stream_tokens(text)
     assert "ShopGuide" in token_text
-    assert "模型大脑" in token_text
+    assert "对话模型" in token_text
     assert "event: products" not in text
 
 

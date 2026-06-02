@@ -21,7 +21,7 @@ struct SidebarView: View {
 
             VStack(spacing: 2) {
                 SidebarRow(title: "我的偏好", systemImage: "person.crop.circle", action: openProfile)
-                SidebarRow(title: "模型大脑", systemImage: "brain", action: openModelBrain)
+                SidebarRow(title: "对话模型", systemImage: "brain", action: openModelBrain)
                 SidebarRow(title: "隐私与合规", systemImage: "lock.shield", action: openPrivacy)
             }
 

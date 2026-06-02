@@ -1174,7 +1174,7 @@ class AgentOrchestrator:
         if compact in {"你好", "hello", "hi", "嗨"}:
             return "你好，我在。我可以像导购一样先问清需求，再基于本地商品库推荐、对比、反选和加购。你可以直接说“我想买手机”或“不要苹果，预算 7000”。"
         if "你" in compact and any(term in compact for term in ["什么模型", "哪个模型", "用的模型", "大模型"]):
-            return "我是 ShopGuide 项目里的电商导购 Agent。模型大脑可以在左上角设置里切换为 DeepSeek 或其他 OpenAI-compatible 模型；商品检索、工具调用和防幻觉检查仍由本机后端统一控制。"
+            return "我是 ShopGuide 项目里的电商导购 Agent。对话模型可以在左上角设置里切换为 DeepSeek 或其他 OpenAI-compatible 模型；商品检索、工具调用和防幻觉检查仍由本机后端统一控制。"
         if compact in {"你是谁", "你能做什么", "怎么用", "帮助", "help"}:
             return "我是这个项目里的电商导购 Agent。你可以和我正常聊天：先说模糊需求也行，我会主动追问；也可以说预算、偏好、不要的品牌/成分，我会只从商品库里找可验证的商品。还可以说“记住我以后护肤不要酒精”“1000元预算去三亚配一套”。"
         if compact in {"谢谢", "谢了", "thanks", "thankyou"}:

@@ -50,7 +50,7 @@ struct ModelBrainView: View {
                     }
                 }
             }
-            .navigationTitle("模型大脑")
+            .navigationTitle("对话模型")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: LLMProviderPreset.self) { preset in
                 ModelProviderDetailView(model: model, preset: preset)
