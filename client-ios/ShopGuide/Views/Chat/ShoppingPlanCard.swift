@@ -85,7 +85,7 @@ private struct PlanItemRow: View {
                 HStack(spacing: 6) {
                     Text(item.role)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(item.optional ? Color.secondary : Color.teal)
+                        .foregroundStyle(item.optional ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.Color.accent))
                     if item.optional {
                         Text("可选")
                             .font(.caption2.weight(.bold))
@@ -109,7 +109,7 @@ private struct PlanItemRow: View {
             VStack(alignment: .trailing, spacing: 8) {
                 Text("¥\(item.product.basePrice, specifier: "%.0f")")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.Color.price)
                 Button {
                     if item.product.skus.count > 1 {
                         path.append(item.product)
@@ -118,10 +118,12 @@ private struct PlanItemRow: View {
                     }
                 } label: {
                     Image(systemName: item.product.skus.count > 1 ? "slider.horizontal.3" : "cart.badge.plus")
-                        .frame(width: 28, height: 28)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Color.onAccent)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.Color.accent, in: .circle)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .buttonStyle(.plain)
             }
         }
         .padding(9)
@@ -140,10 +142,10 @@ private struct BudgetPill: View {
         } icon: {
             Image(systemName: value >= 0 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.Color.onAccent)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(value >= 0 ? Color.green : Color.orange)
-        .clipShape(Capsule())
+        .background(Theme.Color.accent)
+        .clipShape(.capsule)
     }
 }

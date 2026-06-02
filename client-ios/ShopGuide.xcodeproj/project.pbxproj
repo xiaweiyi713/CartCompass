@@ -14,7 +14,9 @@
 		2B1AB99596EFB4641774DFA8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22E127CE6038E2BB4422860E /* Assets.xcassets */; };
 		2E9EF8A1FD768B7995A90AF3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A0F49AD1E33E5C57F28645 /* APIClient.swift */; };
 		44214810320C7AAB3137616D /* LLMProviderPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = B034AD7596906FA8BB9D27C9 /* LLMProviderPreset.swift */; };
+		478A42BC64586A69EA03D8B2 /* ConversationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38F21EA4DBF0C41C2E194E07 /* ConversationDetailView.swift */; };
 		4FB63F965EF0A714A688CC88 /* ChatStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30E5308F12859346286ADAA /* ChatStreamService.swift */; };
+		5889F37DEE9E2DC178636EBD /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51DF31032FE899E0C2D39390 /* SidebarView.swift */; };
 		646B5766E3FA8502A7DF9F24 /* ProductCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F94B50C424E49798871C51 /* ProductCarousel.swift */; };
 		6605C45CF5B539128B6E59A6 /* ImageSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150857AE7D704630F019DE73 /* ImageSearchService.swift */; };
 		6A6359BDFAAAE976DB2DB25B /* ChatLLMSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */; };
@@ -29,17 +31,21 @@
 		D739FC348A05EF97F9E77337 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D758C4C468B330B92D4329 /* ChatView.swift */; };
 		E05015937BD452B86A4AB62E /* PrivacyComplianceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */; };
 		E54C9CDF8CDF84F15F352ECA /* ChatChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5C28B7D95706C2E1ADF863 /* ChatChrome.swift */; };
+		F8565A8AA1CB4317C0915E43 /* StoredConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBD965AF8D0A01BD11CCA6C /* StoredConversation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		14F94B50C424E49798871C51 /* ProductCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductCarousel.swift; sourceTree = "<group>"; };
 		150857AE7D704630F019DE73 /* ImageSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSearchService.swift; sourceTree = "<group>"; };
+		1BBD965AF8D0A01BD11CCA6C /* StoredConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredConversation.swift; sourceTree = "<group>"; };
 		22E127CE6038E2BB4422860E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		38F21EA4DBF0C41C2E194E07 /* ConversationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDetailView.swift; sourceTree = "<group>"; };
 		3A87AD98EAF406340D917459 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		3CEF138FDCBE24904CC54256 /* ShoppingPlanCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoppingPlanCard.swift; sourceTree = "<group>"; };
 		4087B2DBB397E0C7C690DAE0 /* ProfileAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAPIService.swift; sourceTree = "<group>"; };
 		48210A9AB5C5DB9E4493E168 /* CartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartView.swift; sourceTree = "<group>"; };
 		4D47F9B4E37BC2465A8229E9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		51DF31032FE899E0C2D39390 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLLMSettings.swift; sourceTree = "<group>"; };
 		68AEB50E8EC298C9818881EC /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
 		6D0D16F3D1FF019499D81A58 /* ShopGuide.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ShopGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -90,6 +96,7 @@
 			children = (
 				ECC1B9485DBAFF277ACE40C8 /* ChatMessage.swift */,
 				9820C68A7845E6F52C45CD64 /* Product.swift */,
+				1BBD965AF8D0A01BD11CCA6C /* StoredConversation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -136,10 +143,12 @@
 				607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */,
 				82D758C4C468B330B92D4329 /* ChatView.swift */,
 				F6B43E58D2332EFA4A132BD7 /* CompareCard.swift */,
+				38F21EA4DBF0C41C2E194E07 /* ConversationDetailView.swift */,
 				B034AD7596906FA8BB9D27C9 /* LLMProviderPreset.swift */,
 				809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */,
 				948CF2D54C049D4F709214E5 /* ProfileView.swift */,
 				3CEF138FDCBE24904CC54256 /* ShoppingPlanCard.swift */,
+				51DF31032FE899E0C2D39390 /* SidebarView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -246,6 +255,7 @@
 				D739FC348A05EF97F9E77337 /* ChatView.swift in Sources */,
 				88113976A23E4384E44F8EA6 /* ChatViewModel.swift in Sources */,
 				D032063AA14C4D6079180D0B /* CompareCard.swift in Sources */,
+				478A42BC64586A69EA03D8B2 /* ConversationDetailView.swift in Sources */,
 				6605C45CF5B539128B6E59A6 /* ImageSearchService.swift in Sources */,
 				44214810320C7AAB3137616D /* LLMProviderPreset.swift in Sources */,
 				E05015937BD452B86A4AB62E /* PrivacyComplianceView.swift in Sources */,
@@ -256,6 +266,8 @@
 				A22DD57D8EAF2E6B03CDE1EB /* ProfileView.swift in Sources */,
 				B06B939BAB8E00FBE09372F8 /* ShopGuideApp.swift in Sources */,
 				1B66C439A69D1D2E7661533F /* ShoppingPlanCard.swift in Sources */,
+				5889F37DEE9E2DC178636EBD /* SidebarView.swift in Sources */,
+				F8565A8AA1CB4317C0915E43 /* StoredConversation.swift in Sources */,
 				18C6BCC7235F988A1988B851 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

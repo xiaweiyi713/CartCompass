@@ -23,9 +23,9 @@ struct WelcomeActionPanel: View {
             HStack(spacing: 10) {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Color.onAccent)
                     .frame(width: 32, height: 32)
-                    .background(Theme.Color.accent.gradient, in: Circle())
+                    .background(Theme.Color.accent.gradient, in: .circle)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("智能导购")
                         .font(.headline)
@@ -129,26 +129,27 @@ struct QuickPromptBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(prompts, id: \.self) { prompt in
-                    Button(prompt) {
+                    Button {
                         action(prompt)
+                    } label: {
+                        Text(prompt)
+                            .font(.footnote.weight(.medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: 220, alignment: .leading)
                     }
-                    .font(.footnote)
                     .buttonStyle(.plain)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.primary.opacity(0.07), lineWidth: 1)
-                    )
+                    .background(.ultraThinMaterial, in: .capsule)
+                    .overlay(Capsule().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
                     .controlSize(.small)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
         }
-        .background(Color(.systemBackground).opacity(0.94))
     }
 }
 
@@ -162,25 +163,21 @@ struct ComposerView: View {
     let toggleSpeech: () -> Void
     let send: () -> Void
 
+    private var canSend: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isStreaming && !isImageSearching
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Button(action: openCamera) {
-                Image(systemName: "camera")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(Circle())
+                glyph("camera")
             }
             .buttonStyle(.borderless)
             .disabled(isStreaming || isImageSearching)
             .accessibilityLabel("拍照找货")
 
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Image(systemName: isImageSearching ? "photo.badge.clock" : "photo")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(Circle())
+                glyph(isImageSearching ? "photo.badge.clock" : "photo")
             }
             .buttonStyle(.borderless)
             .disabled(isStreaming || isImageSearching)
@@ -191,35 +188,65 @@ struct ComposerView: View {
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(.ultraThinMaterial, in: .rect(cornerRadius: 18))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(Theme.Color.cardStroke, lineWidth: 1)
                 )
 
             Button(action: toggleSpeech) {
-                Image(systemName: isListening ? "mic.circle.fill" : "mic")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(isListening ? Color.red : Color.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(Circle())
+                glyph(isListening ? "mic.circle.fill" : "mic")
             }
             .buttonStyle(.borderless)
             .disabled(isStreaming || isImageSearching)
             .accessibilityLabel(isListening ? "停止语音输入" : "开始语音输入")
 
             Button(action: send) {
-                Image(systemName: isStreaming ? "hourglass" : "paperplane.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(width: 40, height: 40)
+                Image(systemName: sendIcon)
+                    .font(.system(size: 17, weight: .heavy))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(sendForeground)
+                    .frame(width: 42, height: 42)
+                    .background(sendBackground, in: .circle)
+                    .overlay(Circle().strokeBorder(sendStroke, lineWidth: 1))
+                    .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isStreaming || isImageSearching)
+            .buttonStyle(.plain)
+            .disabled(!canSend)
             .accessibilityLabel("发送")
         }
-        .padding(12)
-        .background(.bar)
+        .padding(10)
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 28))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28)
+                .strokeBorder(Theme.Color.cardStroke, lineWidth: 1)
+        )
+    }
+
+    /// Monochrome glass icon button face used for camera / photo / mic.
+    private func glyph(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 38, height: 38)
+            .background(.ultraThinMaterial, in: .circle)
+            .overlay(Circle().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+    }
+
+    private var sendIcon: String {
+        if isStreaming || isImageSearching { return "hourglass" }
+        return canSend ? "arrow.up" : "arrow.up"
+    }
+
+    private var sendForeground: Color {
+        canSend ? Theme.Color.onAccent : .secondary
+    }
+
+    private var sendBackground: some ShapeStyle {
+        canSend ? AnyShapeStyle(Theme.Gradient.brand) : AnyShapeStyle(.ultraThinMaterial)
+    }
+
+    private var sendStroke: Color {
+        canSend ? Theme.Color.glassHighlight : Theme.Color.cardStroke
     }
 }

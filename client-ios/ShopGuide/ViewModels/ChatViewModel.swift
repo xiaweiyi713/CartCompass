@@ -6,7 +6,7 @@ final class ChatViewModel {
     var messages: [ChatMessage] = [
         ChatMessage(role: .assistant, text: "你好，我是智能导购。可以告诉我预算、类目、偏好或排除条件，我会只基于商品库推荐。")
     ]
-    var cart = CartState(sessionID: "ios-demo", items: [], totalPrice: 0)
+    var cart: CartState
     var latestOrder: OrderState?
     var checkoutSession: CheckoutSessionState?
     var checkoutURL: URL?
@@ -25,7 +25,7 @@ final class ChatViewModel {
     var isLLMUpdating = false
     var errorMessage: String?
 
-    let sessionID = "ios-demo"
+    private(set) var sessionID: String
     private let service = ChatStreamService()
     private let cartService = CartAPIService()
     private let imageSearchService = ImageSearchService()
@@ -33,8 +33,59 @@ final class ChatViewModel {
     private let llmService = LLMAPIService()
     private var assistantMessageID: UUID?
 
+    init() {
+        let initialSessionID = Self.makeSessionID()
+        self.sessionID = initialSessionID
+        self.cart = CartState(sessionID: initialSessionID, items: [], totalPrice: 0)
+    }
+
     var hasLLMAPIKey: Bool {
         !sanitizedLLMAPIKey().isEmpty
+    }
+
+    // MARK: - Conversations / history
+
+    var hasUserMessages: Bool {
+        messages.contains { $0.role == .user }
+    }
+
+    /// Short title for the history list, derived from the first user message.
+    var conversationTitle: String {
+        let firstUser = messages.first { $0.role == .user }?.text
+        let raw = (firstUser ?? messages.first?.text ?? "新对话").trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? "新对话" : String(raw.prefix(24))
+    }
+
+    /// Text-bearing turns to archive into history (cards/tool messages skipped).
+    var archivedMessages: [ArchivedMessage] {
+        messages.compactMap { message in
+            guard message.role == .user || message.role == .assistant else { return nil }
+            let text = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            return ArchivedMessage(role: message.role.rawValue, text: message.text)
+        }
+    }
+
+    /// Starts a fresh conversation. A new `sessionID` gives the backend a clean
+    /// session, so the agent no longer remembers the previous turn's products,
+    /// clarifications, or cart — i.e. context is reset.
+    @MainActor
+    func startNewConversation() {
+        sessionID = Self.makeSessionID()
+        inputText = ""
+        messages = [ChatMessage(role: .assistant, text: "你好，我是智能导购。可以告诉我预算、类目、偏好或排除条件，我会只基于商品库推荐。")]
+        cart = CartState(sessionID: sessionID, items: [], totalPrice: 0)
+        latestOrder = nil
+        checkoutSession = nil
+        checkoutURL = nil
+        profile = .empty
+        conversationModeLabel = "普通聊天"
+        speechOutputText = nil
+        assistantMessageID = nil
+    }
+
+    private static func makeSessionID() -> String {
+        "ios-\(UUID().uuidString.prefix(8))"
     }
 
     @MainActor

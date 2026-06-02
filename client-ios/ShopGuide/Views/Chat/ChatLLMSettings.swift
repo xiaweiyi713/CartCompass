@@ -226,9 +226,13 @@ private struct ModelBrainActionBar: View {
 
             Button(action: save) {
                 Label("保存启用", systemImage: "checkmark.circle.fill")
-                    .frame(maxWidth: .infinity)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Theme.Color.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background(Theme.Color.accent, in: .capsule)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
+            .opacity(!canSubmit || isUpdating ? 0.4 : 1)
             .disabled(!canSubmit || isUpdating)
         }
         .padding(.horizontal, 16)
@@ -257,10 +261,10 @@ private struct ProviderListRow: View {
                     if isActive {
                         Text("Active")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.Color.accent)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.14), in: Capsule())
+                            .background(Theme.Color.accent.opacity(0.14), in: .capsule)
                     }
                 }
                 Text(preset.subtitle)
@@ -287,12 +291,9 @@ private struct ProviderCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: preset.icon)
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Color.onAccent)
                     .frame(width: 42, height: 42)
-                    .background(
-                        LinearGradient(colors: [.teal, .blue], startPoint: .topLeading, endPoint: .bottomTrailing),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    )
+                    .background(Theme.Gradient.brand, in: .rect(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
@@ -300,10 +301,10 @@ private struct ProviderCard: View {
                             .font(.headline)
                         Text(isActive ? "Active" : "Ready")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(isActive ? .green : .secondary)
+                            .foregroundStyle(isActive ? Theme.Color.accent : Color.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background((isActive ? Color.green : Color.gray).opacity(0.14), in: Capsule())
+                            .background((isActive ? Theme.Color.accent : Color.secondary).opacity(0.14), in: .capsule)
                     }
                     Text(preset.subtitle)
                         .font(.subheadline)
@@ -312,7 +313,7 @@ private struct ProviderCard: View {
                 Spacer()
                 Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isActive ? .green : .secondary)
+                    .foregroundStyle(isActive ? Theme.Color.accent : Color.secondary)
             }
 
             HStack(spacing: 12) {
@@ -376,9 +377,9 @@ private struct ResultBanner: View {
     var body: some View {
         Label(message, systemImage: isSuccess ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
             .font(.footnote.weight(.medium))
-            .foregroundStyle(isSuccess ? .green : .orange)
+            .foregroundStyle(.primary)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background((isSuccess ? Color.green : Color.orange).opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(.ultraThinMaterial, in: .rect(cornerRadius: 12))
     }
 }

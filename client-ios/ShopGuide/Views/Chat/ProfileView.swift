@@ -69,13 +69,8 @@ struct ProfileSummaryCard: View {
                 FlowTags(values: summaryTags)
             }
         }
-        .padding(14)
-        .background(Theme.Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
-        )
+        .padding(Theme.Spacing.md)
+        .liquidGlass(radius: Theme.Radius.md, elevated: false)
     }
 
     private var summaryTags: [String] {

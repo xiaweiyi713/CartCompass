@@ -38,16 +38,19 @@ struct CartView: View {
                             Spacer()
                             Text("¥\(cart.totalPrice, specifier: "%.0f")")
                                 .font(.title3.bold())
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Theme.Color.price)
                         }
 
                         Button {
                             showsCheckoutConfirmation = true
                         } label: {
                             Label("去沙箱结算", systemImage: "creditcard")
-                                .frame(maxWidth: .infinity)
+                                .font(.headline)
+                                .foregroundStyle(Theme.Color.onAccent)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(Theme.Color.accent, in: .capsule)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.plain)
                         .disabled(isUpdating)
 
                         Button(role: .destructive) {
@@ -60,6 +63,8 @@ struct CartView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(LiquidBackdrop())
             .navigationTitle("购物车")
             .toolbar {
                 if !cart.items.isEmpty {
@@ -118,7 +123,7 @@ private struct CartItemRow: View {
                 }
                 Text("¥\(item.unitPrice, specifier: "%.0f") x \(item.quantity)")
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.Color.price)
                 HStack(spacing: 8) {
                     Button {
                         updateQuantity(item.quantity - 1)
@@ -156,9 +161,8 @@ struct CartSummaryCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(Theme.Spacing.sm)
+        .liquidGlass(radius: Theme.Radius.md, elevated: false)
     }
 }
 

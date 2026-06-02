@@ -57,7 +57,7 @@ private struct ComplianceRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.teal)
+                .foregroundStyle(Theme.Color.accent)
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 5) {
                 Text(title)

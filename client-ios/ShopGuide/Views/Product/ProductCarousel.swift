@@ -1,132 +1,153 @@
 import SwiftUI
-import UIKit
 
+/// Horizontally scrolling recommendation rail. Cards snap into place and rise /
+/// rotate subtly with scroll position for an Apple-product-page parallax feel.
 struct ProductCarousel: View {
     let products: [Product]
     @Binding var path: [Product]
     let addToCart: (Product, SKU?) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: Theme.Spacing.md) {
                 ForEach(products) { product in
                     ProductCard(product: product) {
                         path.append(product)
                     } addToCart: {
-                        if product.skus.count > 1 {
-                            path.append(product)
-                        } else {
-                            addToCart(product, product.skus.first)
-                        }
+                        addToCart(product, product.skus.first)
+                    }
+                    .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1 : 0.93)
+                            .opacity(phase.isIdentity ? 1 : 0.55)
+                            .rotation3DEffect(.degrees(phase.value * -7), axis: (x: 0, y: 1, z: 0))
                     }
                 }
             }
-            .padding(.vertical, Theme.Spacing.xs)
+            .scrollTargetLayout()
+            .padding(.vertical, Theme.Spacing.xxs)
         }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollIndicators(.hidden)
     }
 }
 
+/// A single floating glass recommendation card.
 struct ProductCard: View {
     let product: Product
     let open: () -> Void
     let addToCart: () -> Void
+
     private let client = APIClient()
-    @State private var appeared = false
+    @State private var addTick = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Button(action: open) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    RemoteProductImage(
-                        urls: product.imageCandidates.compactMap { client.absoluteImageURL($0) },
-                        contentMode: .fill
-                    ) {
-                        ImageSkeleton()
-                    }
-                    .frame(width: 220, height: 154)
-                    .clipped()
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+            Button(action: open) { hero }
+                .buttonStyle(PressableCard())
 
-                    HStack(spacing: 6) {
-                        Text(product.brand)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.Color.quietText)
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        if product.matchScore > 0 {
-                            MatchScoreBadge(score: product.matchScore, compact: true)
-                        }
-                    }
+            Text(product.title)
+                .font(.headline)
+                .lineLimit(2)
+                .frame(height: 46, alignment: .topLeading)
 
-                    HStack(spacing: 4) {
-                        Image(systemName: product.sourceURL == nil ? "archivebox" : "link")
-                        Text(product.sourceName)
-                            .lineLimit(1)
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Color.quietText)
-
-                    Text(product.title)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .frame(height: 48, alignment: .topLeading)
-                }
-            }
-            .buttonStyle(.plain)
-
-            HStack {
-                Text("¥\(product.basePrice, specifier: "%.0f")")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.Color.price)
-                Spacer()
-                Button(action: addToCart) {
-                    Image(systemName: product.skus.count > 1 ? "slider.horizontal.3" : "cart.badge.plus")
-                        .font(.headline)
-                        .frame(width: 38, height: 38)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.Color.accent)
-                .accessibilityLabel(product.skus.count > 1 ? "选择规格" : "加入购物车")
+            if let reason = aiReason {
+                Label(reason, systemImage: "sparkles")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .frame(height: 34, alignment: .topLeading)
             }
 
-            if let summary = summaryText {
-                HStack(alignment: .top, spacing: Theme.Spacing.xs) {
-                    Image(systemName: "scope")
-                        .font(.caption)
-                        .foregroundStyle(Theme.Color.accent)
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(Theme.Color.quietText)
-                        .lineLimit(2)
-                        .frame(height: 34, alignment: .topLeading)
-                }
-            }
+            priceRow
         }
         .padding(Theme.Spacing.sm)
-        .frame(width: 244)
-        .cardSurface()
-        .scaleEffect(appeared ? 1 : 0.96)
-        .opacity(appeared ? 1 : 0)
-        .onAppear {
-            withAnimation(.snappy(duration: 0.28)) {
-                appeared = true
+        .frame(width: 250)
+        .liquidGlass(radius: Theme.Radius.lg)
+        .sensoryFeedback(.success, trigger: addTick)
+    }
+
+    private var hero: some View {
+        RemoteProductImage(
+            urls: product.imageCandidates.compactMap { client.absoluteImageURL($0) },
+            contentMode: .fill
+        ) {
+            ImageSkeleton()
+        }
+        .frame(width: 226, height: 150)
+        .clipped()
+        .clipShape(.rect(cornerRadius: Theme.Radius.md))
+        .overlay(alignment: .topTrailing) {
+            if product.matchScore > 0 {
+                MatchScoreBadge(score: product.matchScore, compact: true)
+                    .padding(Theme.Spacing.xs)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let tag = product.highlights.first {
+                GlassTag(text: tag, systemImage: "checkmark.seal.fill")
+                    .padding(Theme.Spacing.xs)
             }
         }
     }
 
-    private var summaryText: String? {
-        if let first = product.matchReasons.first, !first.isEmpty {
-            return first
+    private var priceRow: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(product.basePrice, format: .currency(code: "CNY").precision(.fractionLength(0)))
+                .font(.title3)
+                .bold()
+                .foregroundStyle(Theme.Color.price)
+            Spacer()
+            Button(action: handleAdd) {
+                Label(addLabel, systemImage: addIcon)
+                    .labelStyle(.iconOnly)
+                    .font(.headline)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.Color.onAccent)
+            .background(Theme.Gradient.brand, in: .circle)
+            .accessibilityLabel(addLabel)
         }
-        if !product.reason.isEmpty {
-            return product.reason
+    }
+
+    private var aiReason: String? {
+        if !product.reason.isEmpty { return product.reason }
+        return product.matchReasons.first
+    }
+
+    private var addIcon: String {
+        product.skus.count > 1 ? "slider.horizontal.3" : "cart.badge.plus"
+    }
+
+    private var addLabel: String {
+        product.skus.count > 1 ? "选择规格" : "加入购物车"
+    }
+
+    private func handleAdd() {
+        if product.skus.count > 1 {
+            open()
+        } else {
+            addTick += 1
+            addToCart()
         }
-        return nil
     }
 }
 
+/// Card press affordance: gentle spring scale-down, disabled under Reduce Motion.
+struct PressableCard: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .animation(Theme.Motion.spring, value: configuration.isPressed)
+    }
+}
+
+/// Match-score chip. Monochrome to match the brand: a solid accent capsule with
+/// inverted text keeps it high-contrast over any product photo, in both schemes.
+/// The seal icon plus the score number convey confidence without relying on hue.
 struct MatchScoreBadge: View {
     let score: Int
     var compact = false
@@ -134,59 +155,30 @@ struct MatchScoreBadge: View {
     var body: some View {
         Label {
             Text(compact ? "\(score)" : "匹配 \(score)")
-                .font(compact ? .caption2.weight(.bold) : .footnote.weight(.semibold))
         } icon: {
             Image(systemName: "checkmark.seal.fill")
-                .font(compact ? .caption2 : .footnote)
         }
-        .labelStyle(.titleAndIcon)
-        .foregroundStyle(.white)
-        .padding(.horizontal, compact ? 7 : 10)
-        .padding(.vertical, compact ? 4 : 6)
-        .background(scoreColor)
-        .clipShape(Capsule())
-        .accessibilityLabel("匹配度 \(score)")
-    }
-
-    private var scoreColor: Color {
-        if score >= 86 {
-            return .green
-        }
-        if score >= 72 {
-            return .blue
-        }
-        return .orange
+        .font(compact ? .caption.bold() : .footnote.weight(.semibold))
+        .foregroundStyle(Theme.Color.onAccent)
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 5 : 6)
+        .background(Theme.Color.accent.gradient, in: .capsule)
+        .overlay(Capsule().strokeBorder(Theme.Color.glassHighlight, lineWidth: 0.6))
+        .accessibilityLabel("匹配度 \(score) 分")
     }
 }
 
-private struct ImageSkeleton: View {
-    @State private var opacity = 0.35
+// MARK: - Remote image with shimmer placeholder + in-memory cache
 
-    var body: some View {
-        RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
-            .fill(Color.secondary.opacity(opacity))
-            .overlay {
-                Image(systemName: "photo")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                    opacity = 0.16
-                }
-            }
-    }
-}
-
+/// Loads a product image, trying candidate URLs in order. Shows a shimmering
+/// glass placeholder while loading and falls back to a symbol on failure.
 struct RemoteProductImage<Placeholder: View>: View {
     let urls: [URL]
     let contentMode: ContentMode
-    @ViewBuilder let placeholder: () -> Placeholder
+    @ViewBuilder let placeholder: Placeholder
 
     @State private var image: UIImage?
     @State private var didFail = false
-    @State private var loadKey = UUID()
 
     var body: some View {
         Group {
@@ -197,47 +189,36 @@ struct RemoteProductImage<Placeholder: View>: View {
             } else if didFail {
                 Image(systemName: "photo")
                     .font(.largeTitle)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                placeholder()
+                placeholder
             }
         }
-        .task(id: loadKey) {
+        .task(id: urls) {
             await load()
-        }
-        .onChange(of: urls) { _, _ in
-            image = nil
-            didFail = false
-            loadKey = UUID()
         }
     }
 
     private func load() async {
-        guard image == nil, !urls.isEmpty else {
-            didFail = urls.isEmpty
+        image = nil
+        didFail = false
+        guard !urls.isEmpty else {
+            didFail = true
             return
         }
         for url in urls {
             if let cached = ProductImageMemoryCache.shared.image(for: url) {
-                await MainActor.run {
-                    image = cached
-                    didFail = false
-                }
+                image = cached
                 return
             }
             if let loaded = await fetch(url) {
                 ProductImageMemoryCache.shared.set(loaded, for: url)
-                await MainActor.run {
-                    image = loaded
-                    didFail = false
-                }
+                image = loaded
                 return
             }
         }
-        await MainActor.run {
-            didFail = true
-        }
+        didFail = true
     }
 
     private func fetch(_ url: URL) async -> UIImage? {
@@ -247,13 +228,8 @@ struct RemoteProductImage<Placeholder: View>: View {
         for _ in 0..<2 {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-                    continue
-                }
-                if let image = UIImage(data: data) {
-                    URLCache.shared.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
-                    return image
-                }
+                guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { continue }
+                if let image = UIImage(data: data) { return image }
             } catch {
                 continue
             }
@@ -262,14 +238,29 @@ struct RemoteProductImage<Placeholder: View>: View {
     }
 }
 
-private final class ProductImageMemoryCache {
+/// Glassy shimmer placeholder shown while a product image loads.
+struct ImageSkeleton: View {
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay {
+                PhaseAnimator([0.25, 0.6]) { opacity in
+                    Image(systemName: "photo")
+                        .font(.title2)
+                        .foregroundStyle(.tertiary)
+                        .opacity(opacity)
+                } animation: { _ in .easeInOut(duration: 0.9) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+final class ProductImageMemoryCache {
     static let shared = ProductImageMemoryCache()
     private let cache = NSCache<NSURL, UIImage>()
 
     private init() {
         cache.countLimit = 200
-        URLCache.shared.memoryCapacity = max(URLCache.shared.memoryCapacity, 32 * 1024 * 1024)
-        URLCache.shared.diskCapacity = max(URLCache.shared.diskCapacity, 160 * 1024 * 1024)
     }
 
     func image(for url: URL) -> UIImage? {

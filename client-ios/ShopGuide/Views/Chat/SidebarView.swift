@@ -1,0 +1,156 @@
+import SwiftData
+import SwiftUI
+
+/// Slide-in navigation drawer: quick entries + appearance on top, a divider,
+/// then persisted chat history below. New chats archive the current one.
+struct SidebarView: View {
+    @Bindable var model: ChatViewModel
+    @Binding var isOpen: Bool
+    var openProfile: () -> Void
+    var openModelBrain: () -> Void
+    var openPrivacy: () -> Void
+
+    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.system.rawValue
+    @Environment(\.modelContext) private var context
+    @Query(sort: \StoredConversation.createdAt, order: .reverse) private var conversations: [StoredConversation]
+    @State private var selected: StoredConversation?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            header
+
+            VStack(spacing: 2) {
+                SidebarRow(title: "我的偏好", systemImage: "person.crop.circle", action: openProfile)
+                SidebarRow(title: "模型大脑", systemImage: "brain", action: openModelBrain)
+                SidebarRow(title: "隐私与合规", systemImage: "lock.shield", action: openPrivacy)
+            }
+
+            appearancePicker
+
+            Divider().overlay(Theme.Color.cardStroke)
+
+            Text("历史对话")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            history
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheet(item: $selected) { conversation in
+            ConversationDetailView(conversation: conversation)
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Label("ShopGuide", systemImage: "sparkle.magnifyingglass")
+                .font(.headline)
+            Spacer()
+            Button(action: startNewChat) {
+                Image(systemName: "square.and.pencil")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .frame(width: 40, height: 40)
+                    .background(.ultraThinMaterial, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("新对话")
+        }
+    }
+
+    private var appearancePicker: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text("外观")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("外观", selection: $appearanceRaw) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.label).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    @ViewBuilder private var history: some View {
+        if conversations.isEmpty {
+            Text("还没有历史对话。点右上角“新对话”会把当前会话归档到这里。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(conversations) { conversation in
+                        HistoryRow(conversation: conversation) {
+                            selected = conversation
+                        }
+                        .contextMenu {
+                            Button("删除", systemImage: "trash", role: .destructive) {
+                                context.delete(conversation)
+                            }
+                        }
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private func startNewChat() {
+        if model.hasUserMessages {
+            context.insert(StoredConversation(title: model.conversationTitle, messages: model.archivedMessages))
+            try? context.save()
+        }
+        model.startNewConversation()
+        withAnimation(Theme.Motion.spring) { isOpen = false }
+    }
+}
+
+private struct SidebarRow: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct HistoryRow: View {
+    let conversation: StoredConversation
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(conversation.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(conversation.preview)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, Theme.Spacing.sm)
+            .padding(.vertical, Theme.Spacing.xs)
+            .background(.ultraThinMaterial, in: .rect(cornerRadius: Theme.Radius.sm))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+}
