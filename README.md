@@ -42,11 +42,13 @@
 ### 后端(Python 3.11 推荐)
 
 ```bash
-cd server
-python3 -m pip install -r requirements.txt
-python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd "字节AI全栈挑战赛"            # 项目根目录
+python3 -m pip install -r server/requirements.txt
+PYTHONPATH=server python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
+> DB / 静态目录路径由代码位置解析为绝对路径,**从项目根或 `server/` 目录启动都不会找错库**(`.env` 不要用相对路径覆盖 `SHOPGUIDE_DB`)。
+>
 > **开箱即用**:312+9=321 条演示商品库已作为种子快照提交在 `server/storage/seed.sqlite3`。首次启动检测不到运行库时会自动复制种子库,无需手动入库(Docker 同理)。
 >
 > **启用豆包/方舟能力**:复制 `server/.env.example` 为 `server/.env` 并填入 `ARK_API_KEY`,即可解锁 LLM 文案生成、多模态向量检索、跨模态拍照找货与 VLM 图像理解;未配置时全部自动降级到本地确定性逻辑,服务不中断。
