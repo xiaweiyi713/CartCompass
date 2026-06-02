@@ -1,0 +1,298 @@
+{
+  "input_count": 259,
+  "curated_count": 204,
+  "rejected_count": 55,
+  "rejected_reasons": [
+    {
+      "product_id": "p_real_001_29d2dbc5",
+      "title": "Anker 321 USB-C to Lightning Cable (3 ft / 6 ft / 10 ft)",
+      "reason": "unrealistic price"
+    },
+    {
+      "product_id": "p_real_048_aeeef001",
+      "title": "Anker Nano Power Bank (12W, Built-In Lightning Connector)",
+      "reason": "unrealistic price"
+    },
+    {
+      "product_id": "p_real_050_96b6ea08",
+      "title": "Anker 548 Power Bank (PowerCore Reserve 192Wh)",
+      "reason": "unrealistic price"
+    },
+    {
+      "product_id": "p_real_052_b98cb56f",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_055_bfd43bb5",
+      "title": "Precision Brow Pencil",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_056_46867883",
+      "title": "Ultra Matte Lip",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_057_c72bd017",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_058_ba32f893",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_059_59ee738d",
+      "title": "Precision Brow Pencil",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_060_477d0ff6",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_061_498d9d48",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_063_a1122504",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_064_d617c4e9",
+      "title": "Ultra Matte Lip",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_065_87fc8439",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_066_2f1f0f96",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_067_b407f454",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_068_61b7d52c",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_069_08ffb9bc",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_070_78fcf944",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_071_98218286",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_072_932f67d4",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_073_07605249",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_074_c42d6f67",
+      "title": "Super Shock Highlighter",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_075_56a3da91",
+      "title": "Super Shock Shadow",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_083_fcc95c0d",
+      "title": "Lemon & Sage",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_162_f3ab1ef1",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_163_21e5d304",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_164_506403fc",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_165_48b3789f",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_166_b1ff9243",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_167_405a4256",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_168_ad8950a2",
+      "title": "Weekend Classic",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_170_b96eeeff",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_171_cb847434",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_172_586b6cb1",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_173_9d480863",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_174_ec36e719",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_175_08e5c466",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_176_7945e0a6",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_178_94c81e6f",
+      "title": "Stormburst High Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_179_04fd177f",
+      "title": "Stormburst High Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_180_3619b970",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_181_ab4e0da3",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_182_7fe94c3b",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_183_5babea4a",
+      "title": "Classic Chelsea",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_185_1fcebf09",
+      "title": "Boardwalk Slip-On",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_186_72ee24ef",
+      "title": "Boardwalk Slip-On",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_187_986d4b6e",
+      "title": "Boardwalk Slip-On",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_188_f90446d9",
+      "title": "Boardwalk Slip-On",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_189_77eb823d",
+      "title": "Boardwalk Slip-On",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_190_6c06a393",
+      "title": "Stormburst High Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_191_ce35106a",
+      "title": "Stormburst High Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_192_873a1090",
+      "title": "Stormburst High Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_194_38ef10b7",
+      "title": "Stormburst Low Top",
+      "reason": "duplicate title"
+    },
+    {
+      "product_id": "p_real_195_61f2339b",
+      "title": "Stormburst Low Top",
+      "reason": "duplicate title"
+    }
+  ],
+  "category_counts": {
+    "数码电子": 47,
+    "美妆护肤": 42,
+    "服饰运动": 85,
+    "食品饮料": 30
+  },
+  "source_counts": {
+    "anker_official_store": 47,
+    "colourpop_official_store": 4,
+    "bliss_official_store": 38,
+    "baleaf_official_store": 45,
+    "vessi_official_store": 5,
+    "goruck_official_store": 35,
+    "lacolombe_official_store": 24,
+    "deathwishcoffee_official_store": 6
+  }
+}

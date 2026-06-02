@@ -1,0 +1,18 @@
+[
+  {
+    "id": "xmodal_sunscreen_to_sunscreen",
+    "type": "visual_search",
+    "requires": "embedding",
+    "image_path": "server/static/product_images/p_beauty_006.jpg",
+    "expected_topk": ["p_beauty_006", "p_beauty_010", "p_beauty_023"],
+    "k": 3
+  },
+  {
+    "id": "xmodal_phone_to_phone",
+    "type": "visual_search",
+    "requires": "embedding",
+    "image_path": "server/static/product_images/p_digital_001.jpg",
+    "expected_topk": ["p_digital_001", "p_digital_003", "p_digital_015"],
+    "k": 3
+  }
+]

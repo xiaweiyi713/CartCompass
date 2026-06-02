@@ -29,8 +29,9 @@ DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 def run_evaluation(output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
     client = TestClient(app)
+    capabilities = _capabilities()
     raw_cases = _load_cases()
-    case_results = [_run_case(client, case) for case in raw_cases]
+    case_results = [_run_case(client, case, capabilities) for case in raw_cases]
     metrics = _metrics(case_results)
     results = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -53,7 +54,33 @@ def _load_cases() -> list[dict[str, Any]]:
     return cases
 
 
-def _run_case(client: TestClient, case: dict[str, Any]) -> dict[str, Any]:
+def _capabilities() -> dict[str, bool]:
+    """Which optional capabilities are configured, so cases that depend on them
+    (LLM planner / multimodal embedding) can be skipped instead of failing when
+    running offline / in CI without keys."""
+    try:
+        from app.api.routes import agent, products
+
+        return {
+            "llm": agent.llm.is_configured,
+            "embedding": products.semantic_store.is_configured,
+        }
+    except Exception:  # noqa: BLE001 - capability probe must never break the run.
+        return {"llm": False, "embedding": False}
+
+
+def _run_case(client: TestClient, case: dict[str, Any], capabilities: dict[str, bool]) -> dict[str, Any]:
+    requires = case.get("requires")
+    if requires and not capabilities.get(requires, False):
+        return {
+            "id": case["id"],
+            "type": case["type"],
+            "passed": True,
+            "skipped": True,
+            "latency_ms": 0.0,
+            "details": {"skipped": f"requires {requires}（未配置，已跳过）"},
+            "metrics": {},
+        }
     started_at = time.perf_counter()
     try:
         if case["type"] == "chat":
@@ -181,6 +208,7 @@ def _evaluate_chat_response(case: dict[str, Any], response: dict[str, Any]) -> d
     checks = {
         "status_ok": response["status_code"] == 200,
         "min_products": len(response["product_ids"]) >= int(case.get("expected_min_products", 0)),
+        "max_products": len(response["product_ids"]) <= int(case["expected_max_products"]) if "expected_max_products" in case else True,
         "expected_text": all(term in response["text"] or term in response["raw"] for term in case.get("expected_text_contains", [])),
         "expected_products": _expected_products_hit(case, response["product_ids"]),
         "clarification": _clarification_matches(case, response),
@@ -272,11 +300,13 @@ def _metrics(case_results: list[dict[str, Any]]) -> dict[str, Any]:
             target_key = _metric_key(key)
             if target_key in metric_flags:
                 metric_flags[target_key].append(bool(value))
-    latencies = [case["latency_ms"] for case in case_results]
+    active = [case for case in case_results if not case.get("skipped")]
+    latencies = [case["latency_ms"] for case in active]
     return {
         "total_cases": len(case_results),
-        "passed_cases": sum(1 for case in case_results if case["passed"]),
-        "case_pass_rate": _rate([case["passed"] for case in case_results]),
+        "skipped_cases": sum(1 for case in case_results if case.get("skipped")),
+        "passed_cases": sum(1 for case in active if case["passed"]),
+        "case_pass_rate": _rate([case["passed"] for case in active]),
         "top3_hit_rate": _rate(metric_flags["top3_hit_rate"]),
         "negative_filter_accuracy": _rate(metric_flags["negative_filter_accuracy"]),
         "clarification_accuracy": _rate(metric_flags["clarification_accuracy"]),

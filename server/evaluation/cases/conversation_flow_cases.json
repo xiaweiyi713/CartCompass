@@ -1,0 +1,23 @@
+[
+  {
+    "id": "chat_emotion_no_hardsell",
+    "type": "chat",
+    "query": "今天上班好累啊，有点提不起劲",
+    "expected_max_products": 0
+  },
+  {
+    "id": "chat_then_shop_pivot",
+    "type": "multi_turn",
+    "turns": [
+      {
+        "query": "最近事情有点多，就想随便聊聊放松一下",
+        "expected_max_products": 0
+      },
+      {
+        "query": "那帮我推荐一款降噪耳机，预算2000以内",
+        "expected_min_products": 1,
+        "expected_category": "数码电子"
+      }
+    ]
+  }
+]

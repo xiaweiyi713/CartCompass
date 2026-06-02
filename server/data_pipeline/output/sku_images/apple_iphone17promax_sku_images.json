@@ -1,0 +1,62 @@
+{
+  "product_id": "p_digital_003",
+  "source_page": "https://www.apple.com/shop/buy-iphone/iphone-17-pro/6.9-inch-display-256gb-cosmic-orange-unlocked",
+  "crawl_time": "2026-05-21T15:23:29.274119+00:00",
+  "policy": "Only SKU images downloaded from the public source page are attached. Missing variants are left without fabricated images.",
+  "skus": [
+    {
+      "sku_id": "s_p_digital_003_1",
+      "color": "宇宙橙 Cosmic Orange",
+      "local_image": "/static/product_images/s_p_digital_003_1.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-cosmicorange-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3l3Zmt2NXhsUGlDWFZkQVRMQVRpK2RJQzlCV0xCcGlKTjdaWjdQQnlyRHRvcndIY3JSYzdyTFBYeUJTMjEvdEtvSm5hd2pva0l5US9ZV0RBS3grazFDRlB1SEpWdUNaTWsxMUVIT2IvWFNB"
+    },
+    {
+      "sku_id": "s_p_digital_003_2",
+      "color": "冰川蓝",
+      "local_image": "/static/product_images/s_p_digital_003_2.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-deepblue-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3IxVjhSRGZLSWZ2UUYzU1IyaE5QNkV3S0grNWRDVTNuaVhuc2dPbTQ4Q0V1RGVGY05iMGVCVXhlTE1BQUZjMDErV3Z5VHo3S0pJcVkvRFUydFNUMmE"
+    },
+    {
+      "sku_id": "s_p_digital_003_3",
+      "color": "银色",
+      "local_image": "/static/product_images/s_p_digital_003_3.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-silver-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvNTBBRTJZemNoOGowa0JRdDJwdTZiV1JIMnJUYkhxeFlQUFF6U1JnK1dZZmROL1VCcUxMZGhIeWpHS1Y3Y0ZmQm9mV0cyM2cwR1A4TzBidXRManRoUWw"
+    },
+    {
+      "sku_id": "s_p_digital_003_4",
+      "color": "宇宙橙 Cosmic Orange",
+      "local_image": "/static/product_images/s_p_digital_003_4.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-cosmicorange-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3l3Zmt2NXhsUGlDWFZkQVRMQVRpK2RJQzlCV0xCcGlKTjdaWjdQQnlyRHRvcndIY3JSYzdyTFBYeUJTMjEvdEtvSm5hd2pva0l5US9ZV0RBS3grazFDRlB1SEpWdUNaTWsxMUVIT2IvWFNB"
+    },
+    {
+      "sku_id": "s_p_digital_003_5",
+      "color": "冰川蓝",
+      "local_image": "/static/product_images/s_p_digital_003_5.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-deepblue-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3IxVjhSRGZLSWZ2UUYzU1IyaE5QNkV3S0grNWRDVTNuaVhuc2dPbTQ4Q0V1RGVGY05iMGVCVXhlTE1BQUZjMDErV3Z5VHo3S0pJcVkvRFUydFNUMmE"
+    },
+    {
+      "sku_id": "s_p_digital_003_6",
+      "color": "银色",
+      "local_image": "/static/product_images/s_p_digital_003_6.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-silver-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvNTBBRTJZemNoOGowa0JRdDJwdTZiV1JIMnJUYkhxeFlQUFF6U1JnK1dZZmROL1VCcUxMZGhIeWpHS1Y3Y0ZmQm9mV0cyM2cwR1A4TzBidXRManRoUWw"
+    },
+    {
+      "sku_id": "s_p_digital_003_7",
+      "color": "宇宙橙 Cosmic Orange",
+      "local_image": "/static/product_images/s_p_digital_003_7.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-cosmicorange-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3l3Zmt2NXhsUGlDWFZkQVRMQVRpK2RJQzlCV0xCcGlKTjdaWjdQQnlyRHRvcndIY3JSYzdyTFBYeUJTMjEvdEtvSm5hd2pva0l5US9ZV0RBS3grazFDRlB1SEpWdUNaTWsxMUVIT2IvWFNB"
+    },
+    {
+      "sku_id": "s_p_digital_003_8",
+      "color": "冰川蓝",
+      "local_image": "/static/product_images/s_p_digital_003_8.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-deepblue-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvN3IxVjhSRGZLSWZ2UUYzU1IyaE5QNkV3S0grNWRDVTNuaVhuc2dPbTQ4Q0V1RGVGY05iMGVCVXhlTE1BQUZjMDErV3Z5VHo3S0pJcVkvRFUydFNUMmE"
+    },
+    {
+      "sku_id": "s_p_digital_003_9",
+      "color": "银色",
+      "local_image": "/static/product_images/s_p_digital_003_9.png",
+      "source_url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-pro-max-finish-select-silver-202509?wid=940&hei=1112&fmt=png-alpha&.v=UGxRWEJPajdEMXBieGEzZUtQamtWb0Q2cmRnWCtSNmVDd2t4cWxWSnIvNTBBRTJZemNoOGowa0JRdDJwdTZiV1JIMnJUYkhxeFlQUFF6U1JnK1dZZmROL1VCcUxMZGhIeWpHS1Y3Y0ZmQm9mV0cyM2cwR1A4TzBidXRManRoUWw"
+    }
+  ]
+}

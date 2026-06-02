@@ -442,6 +442,9 @@ def test_llm_gateway_accepts_anthropic_runtime_config() -> None:
             "provider": "anthropic",
             "api_key": "sk-ant-test-secret-value",
             "model": "claude-3-5-sonnet-latest",
+            # Pin the endpoint explicitly so the assertion stays hermetic and does
+            # not depend on an ambient ANTHROPIC_BASE_URL env var on the test host.
+            "base_url": "https://api.anthropic.com/v1",
         },
     )
     assert response.status_code == 200
@@ -1179,6 +1182,62 @@ def test_budget_only_followup_after_alternative_keeps_phone_context() -> None:
     assert products
     assert all(product["category"] == "数码电子" for product in products)
     assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+
+
+def test_phone_budget_de_suffix_followup_keeps_phone_context() -> None:
+    session_id = "test-phone-budget-de-suffix-followup"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐5000以内的手机"})
+    assert "event: products" in first.text
+
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "7000的"})
+    assert response.status_code == 200
+    text = response.text
+    products = _stream_products(text)
+    assert "needs_clarification" not in text
+    assert '"mode": "general_chat"' not in text
+    assert products
+    assert all(product["category"] == "数码电子" for product in products)
+    assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+    assert all(product["base_price"] <= 7000 for product in products)
+
+
+def test_affirmative_followup_continues_active_shopping_context() -> None:
+    session_id = "test-affirmative-shopping-context"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐手机"})
+    assert "needs_clarification" in first.text
+
+    budget = client.post("/api/chat/stream", json={"session_id": session_id, "message": "7000的"})
+    assert "event: products" in budget.text
+    assert "needs_clarification" not in budget.text
+
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "是的"})
+    assert response.status_code == 200
+    text = response.text
+    products = _stream_products(text)
+    assert '"mode": "general_chat"' not in text
+    assert "needs_clarification" not in text
+    assert products
+    assert all(product["category"] == "数码电子" for product in products)
+    assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+
+
+def test_more_results_followup_uses_previous_recommendation_context() -> None:
+    session_id = "test-more-results-phone-context"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐9999以内的手机"})
+    assert "event: products" in first.text
+    previous_ids = {product["product_id"] for product in _stream_products(first.text)}
+    assert previous_ids
+
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "再多几个"})
+    assert response.status_code == 200
+    text = response.text
+    products = _stream_products(text)
+    assert "needs_clarification" not in text
+    assert '"mode": "general_chat"' not in text
+    assert products
+    assert all(product["category"] == "数码电子" for product in products)
+    assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+    assert not previous_ids.intersection(product["product_id"] for product in products)
 
 
 def test_approximate_budget_parser_accepts_generic_numeric_forms() -> None:

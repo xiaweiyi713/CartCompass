@@ -1,0 +1,237 @@
+[
+  {
+    "product_id": "p_collected_001_c40e704b",
+    "title": "A Light in the Attic",
+    "brand": "Books To Scrape",
+    "category": "图书",
+    "sub_category": "英文图书",
+    "base_price": 51.77,
+    "image_url": "https://books.toscrape.com/media/cache/fe/72/fe72f0532301ec28892ae79a629a293c.jpg",
+    "product_url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+    "stock_status": "unknown",
+    "rating": 0.0,
+    "review_count": 0,
+    "attributes": {
+      "skin_type": [],
+      "features": [],
+      "scenario": [],
+      "exclude_ingredients": [],
+      "tags": []
+    },
+    "review_summary": {
+      "positive": [],
+      "negative": []
+    },
+    "skus": [
+      {
+        "sku_id": "s_p_collected_001_c40e704b_1",
+        "properties": {
+          "来源": "books_to_scrape"
+        },
+        "price": 51.77
+      }
+    ],
+    "rag_knowledge": {
+      "marketing_description": "Books To Scrape A Light in the Attic It's hard to imagine a world without A Light in the Attic. This now-classic collection of poetry and drawings from Shel Silverstein celebrates its 20th anniversary with this special edition. Silverstein's humorous and creative verse can amuse the dowdiest of readers. Lemon-faced adults and fidgety kids sit still and read these rhythmic words and laugh and smile and love th It's hard to imagine a world without A Light in the Attic. This now-classic collection of poetry and drawings from Shel Silverstein celebrates its 20th anniversary with this special edition. Silverstein's humorous and creative verse can amuse the dowdiest of readers. Lemon-faced adults and fidgety kids sit still and read these rhythmic words and laugh and smile and love that Silverstein. Need proof of his genius? RockabyeRockabye baby, in the treetopDon't you know a treetopIs no safe place to rock?And who put you up there,And your cradle, too?Baby, I think someone down here'sGot it in for you. Shel, you never sounded so good. ...more 公开来源链接：https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+      "official_faq": [
+        {
+          "question": "A Light in the Attic 的主要推荐理由是什么？",
+          "answer": "根据采集到的公开商品信息，Books To Scrape 这款商品的可用标签包括：暂无明显标签。实际推荐时仍应结合预算、场景和排除条件。"
+        },
+        {
+          "question": "这条商品数据来自哪里？",
+          "answer": "该补充数据来自 books_to_scrape 的公开页面采集，采集器遵守 robots.txt、低频请求，不包含登录态、验证码绕过或用户隐私信息。"
+        }
+      ],
+      "user_reviews": []
+    }
+  },
+  {
+    "product_id": "p_collected_002_b5bf2085",
+    "title": "Tipping the Velvet",
+    "brand": "Books To Scrape",
+    "category": "图书",
+    "sub_category": "英文图书",
+    "base_price": 53.74,
+    "image_url": "https://books.toscrape.com/media/cache/08/e9/08e94f3731d7d6b760dfbfbc02ca5c62.jpg",
+    "product_url": "https://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html",
+    "stock_status": "unknown",
+    "rating": 0.0,
+    "review_count": 0,
+    "attributes": {
+      "skin_type": [],
+      "features": [],
+      "scenario": [],
+      "exclude_ingredients": [],
+      "tags": []
+    },
+    "review_summary": {
+      "positive": [],
+      "negative": []
+    },
+    "skus": [
+      {
+        "sku_id": "s_p_collected_002_b5bf2085_1",
+        "properties": {
+          "来源": "books_to_scrape"
+        },
+        "price": 53.74
+      }
+    ],
+    "rag_knowledge": {
+      "marketing_description": "Books To Scrape Tipping the Velvet \"Erotic and absorbing...Written with starling power.\"--\"The New York Times Book Review \" Nan King, an oyster girl, is captivated by the music hall phenomenon Kitty Butler, a male impersonator extraordinaire treading the boards in Canterbury. Through a friend at the box office, Nan manages to visit all her shows and finally meet her heroine. Soon after, she becomes Kitty's \"Erotic and absorbing...Written with starling power.\"--\"The New York Times Book Review \" Nan King, an oyster girl, is captivated by the music hall phenomenon Kitty Butler, a male impersonator extraordinaire treading the boards in Canterbury. Through a friend at the box office, Nan manages to visit all her shows and finally meet her heroine. Soon after, she becomes Kitty's dresser and the two head for the bright lights of Leicester Square where they begin a glittering career as music-hall stars in an all-singing and dancing double act. At the same time, behind closed doors, they admit their attraction to each other and their affair begins. ...more 公开来源链接：https://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html",
+      "official_faq": [
+        {
+          "question": "Tipping the Velvet 的主要推荐理由是什么？",
+          "answer": "根据采集到的公开商品信息，Books To Scrape 这款商品的可用标签包括：暂无明显标签。实际推荐时仍应结合预算、场景和排除条件。"
+        },
+        {
+          "question": "这条商品数据来自哪里？",
+          "answer": "该补充数据来自 books_to_scrape 的公开页面采集，采集器遵守 robots.txt、低频请求，不包含登录态、验证码绕过或用户隐私信息。"
+        }
+      ],
+      "user_reviews": []
+    }
+  },
+  {
+    "product_id": "p_collected_003_90b41c36",
+    "title": "Soumission",
+    "brand": "Books To Scrape",
+    "category": "图书",
+    "sub_category": "英文图书",
+    "base_price": 50.1,
+    "image_url": "https://books.toscrape.com/media/cache/ee/cf/eecfe998905e455df12064dba399c075.jpg",
+    "product_url": "https://books.toscrape.com/catalogue/soumission_998/index.html",
+    "stock_status": "unknown",
+    "rating": 0.0,
+    "review_count": 0,
+    "attributes": {
+      "skin_type": [],
+      "features": [],
+      "scenario": [],
+      "exclude_ingredients": [],
+      "tags": []
+    },
+    "review_summary": {
+      "positive": [],
+      "negative": []
+    },
+    "skus": [
+      {
+        "sku_id": "s_p_collected_003_90b41c36_1",
+        "properties": {
+          "来源": "books_to_scrape"
+        },
+        "price": 50.1
+      }
+    ],
+    "rag_knowledge": {
+      "marketing_description": "Books To Scrape Soumission Dans une France assez proche de la nôtre, un homme s’engage dans la carrière universitaire. Peu motivé par l’enseignement, il s’attend à une vie ennuyeuse mais calme, protégée des grands drames historiques. Cependant les forces en jeu dans le pays ont fissuré le système politique jusqu’à provoquer son effondrement. Cette implosion sans soubresauts, sans vraie révolution, s Dans une France assez proche de la nôtre, un homme s’engage dans la carrière universitaire. Peu motivé par l’enseignement, il s’attend à une vie ennuyeuse mais calme, protégée des grands drames historiques. Cependant les forces en jeu dans le pays ont fissuré le système politique jusqu’à provoquer son effondrement. Cette implosion sans soubresauts, sans vraie révolution, se développe comme un mauvais rêve.Le talent de l’auteur, sa force visionnaire nous entraînent sur un terrain ambigu et glissant ; son regard sur notre civilisation vieillissante fait coexister dans ce roman les intuitions poétiques, les effets comiques, une mélancolie fataliste.Ce livre est une saisissante fable politique et morale. ...more 公开来源链接：https://books.toscrape.com/catalogue/soumission_998/index.html",
+      "official_faq": [
+        {
+          "question": "Soumission 的主要推荐理由是什么？",
+          "answer": "根据采集到的公开商品信息，Books To Scrape 这款商品的可用标签包括：暂无明显标签。实际推荐时仍应结合预算、场景和排除条件。"
+        },
+        {
+          "question": "这条商品数据来自哪里？",
+          "answer": "该补充数据来自 books_to_scrape 的公开页面采集，采集器遵守 robots.txt、低频请求，不包含登录态、验证码绕过或用户隐私信息。"
+        }
+      ],
+      "user_reviews": []
+    }
+  },
+  {
+    "product_id": "p_collected_004_87a75ac3",
+    "title": "Sharp Objects",
+    "brand": "Books To Scrape",
+    "category": "图书",
+    "sub_category": "英文图书",
+    "base_price": 47.82,
+    "image_url": "https://books.toscrape.com/media/cache/c0/59/c05972805aa7201171b8fc71a5b00292.jpg",
+    "product_url": "https://books.toscrape.com/catalogue/sharp-objects_997/index.html",
+    "stock_status": "unknown",
+    "rating": 0.0,
+    "review_count": 0,
+    "attributes": {
+      "skin_type": [],
+      "features": [],
+      "scenario": [],
+      "exclude_ingredients": [],
+      "tags": []
+    },
+    "review_summary": {
+      "positive": [],
+      "negative": []
+    },
+    "skus": [
+      {
+        "sku_id": "s_p_collected_004_87a75ac3_1",
+        "properties": {
+          "来源": "books_to_scrape"
+        },
+        "price": 47.82
+      }
+    ],
+    "rag_knowledge": {
+      "marketing_description": "Books To Scrape Sharp Objects WICKED above her hipbone, GIRL across her heart Words are like a road map to reporter Camille Preaker’s troubled past. Fresh from a brief stay at a psych hospital, Camille’s first assignment from the second-rate daily paper where she works brings her reluctantly back to her hometown to cover the murders of two preteen girls. NASTY on her kneecap, BABYDOLL on her leg Since WICKED above her hipbone, GIRL across her heart Words are like a road map to reporter Camille Preaker’s troubled past. Fresh from a brief stay at a psych hospital, Camille’s first assignment from the second-rate daily paper where she works brings her reluctantly back to her hometown to cover the murders of two preteen girls. NASTY on her kneecap, BABYDOLL on her leg Since she left town eight years ago, Camille has hardly spoken to her neurotic, hypochondriac mother or to the half-sister she barely knows: a beautiful thirteen-year-old with an eerie grip on the town. Now, installed again in her family’s Victorian mansion, Camille is haunted by the childhood tragedy she has spent her whole life trying to cut from her memory. HARMFUL on her wrist, WHORE on her ankle As Camille works to uncover the truth about these violent crimes, she finds herself identifying with the young victims—a bit too strongly. Clues keep leading to dead ends, forcing Camille to unravel the psychological puzzle of her own past to get at the story. Dogged by her own demons, Camille will have to confront what happened to her years before if she wants to survive this homecoming.With its taut, crafted writing, Sharp Objects is addictive, haunting, and unforgettable. ...more 公开来源链接：https://books.toscrape.com/catalogue/sharp-objects_997/index.html",
+      "official_faq": [
+        {
+          "question": "Sharp Objects 的主要推荐理由是什么？",
+          "answer": "根据采集到的公开商品信息，Books To Scrape 这款商品的可用标签包括：暂无明显标签。实际推荐时仍应结合预算、场景和排除条件。"
+        },
+        {
+          "question": "这条商品数据来自哪里？",
+          "answer": "该补充数据来自 books_to_scrape 的公开页面采集，采集器遵守 robots.txt、低频请求，不包含登录态、验证码绕过或用户隐私信息。"
+        }
+      ],
+      "user_reviews": []
+    }
+  },
+  {
+    "product_id": "p_collected_005_2487c028",
+    "title": "Sapiens: A Brief History of Humankind",
+    "brand": "Books To Scrape",
+    "category": "图书",
+    "sub_category": "英文图书",
+    "base_price": 54.23,
+    "image_url": "https://books.toscrape.com/media/cache/ce/5f/ce5f052c65cc963cf4422be096e915c9.jpg",
+    "product_url": "https://books.toscrape.com/catalogue/sapiens-a-brief-history-of-humankind_996/index.html",
+    "stock_status": "unknown",
+    "rating": 0.0,
+    "review_count": 0,
+    "attributes": {
+      "skin_type": [],
+      "features": [],
+      "scenario": [],
+      "exclude_ingredients": [],
+      "tags": []
+    },
+    "review_summary": {
+      "positive": [],
+      "negative": []
+    },
+    "skus": [
+      {
+        "sku_id": "s_p_collected_005_2487c028_1",
+        "properties": {
+          "来源": "books_to_scrape"
+        },
+        "price": 54.23
+      }
+    ],
+    "rag_knowledge": {
+      "marketing_description": "Books To Scrape Sapiens: A Brief History of Humankind From a renowned historian comes a groundbreaking narrative of humanity’s creation and evolution—a #1 international bestseller—that explores the ways in which biology and history have defined us and enhanced our understanding of what it means to be “human.”One hundred thousand years ago, at least six different species of humans inhabited Earth. Yet today there is only one—h From a renowned historian comes a groundbreaking narrative of humanity’s creation and evolution—a #1 international bestseller—that explores the ways in which biology and history have defined us and enhanced our understanding of what it means to be “human.”One hundred thousand years ago, at least six different species of humans inhabited Earth. Yet today there is only one—homo sapiens. What happened to the others? And what may happen to us?Most books about the history of humanity pursue either a historical or a biological approach, but Dr. Yuval Noah Harari breaks the mold with this highly original book that begins about 70,000 years ago with the appearance of modern cognition. From examining the role evolving humans have played in the global ecosystem to charting the rise of empires, Sapiens integrates history and science to reconsider accepted narratives, connect past developments with contemporary concerns, and examine specific events within the context of larger ideas.Dr. Harari also compels us to look ahead, because over the last few decades humans have begun to bend laws of natural selection that have governed life for the past four billion years. We are acquiring the ability to design not only the world around us, but also ourselves. Where is this leading us, and what do we want to become?Featuring 27 photographs, 6 maps, and 25 illustrations/diagrams, this provocative and insightful work is sure to spark debate and is essential reading for aficionados of Jared Diamond, James Gleick, Matt Ridley, Robert Wright, and Sharon Moalem. ...more 公开来源链接：https://books.toscrape.com/catalogue/sapiens-a-brief-history-of-humankind_996/index.html",
+      "official_faq": [
+        {
+          "question": "Sapiens: A Brief History of Humankind 的主要推荐理由是什么？",
+          "answer": "根据采集到的公开商品信息，Books To Scrape 这款商品的可用标签包括：暂无明显标签。实际推荐时仍应结合预算、场景和排除条件。"
+        },
+        {
+          "question": "这条商品数据来自哪里？",
+          "answer": "该补充数据来自 books_to_scrape 的公开页面采集，采集器遵守 robots.txt、低频请求，不包含登录态、验证码绕过或用户隐私信息。"
+        }
+      ],
+      "user_reviews": []
+    }
+  }
+]
