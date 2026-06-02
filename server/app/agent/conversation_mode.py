@@ -52,6 +52,8 @@ class ConversationModeRouter:
             return ConversationModeDecision("weather_query", 0, False, False, False, "实时天气查询")
         if self._is_feedback(compact, has_last_products):
             return ConversationModeDecision("shopping_assist", 3, True, True, False, "用户在反选上一轮商品")
+        if self._is_more_results(compact, has_last_products):
+            return ConversationModeDecision("shopping_assist", 3, True, True, False, "用户要求延续上一轮条件继续推荐")
         if self._is_product_followup_question(compact, has_last_products):
             return ConversationModeDecision("shopping_assist", 3, False, False, False, "用户在追问上一轮商品事实，交给商品 QA 链路")
         if self._is_strong_purchase(compact, lower):
@@ -103,6 +105,26 @@ class ConversationModeRouter:
             for term in ["太贵", "便宜点", "平替", "高端", "升级", "换品牌", "换个品牌", "别的品牌", "不喜欢", "不要", "喜欢这款", "喜欢这个"]
         )
 
+    def _is_more_results(self, compact: str, has_last_products: bool) -> bool:
+        if not has_last_products:
+            return False
+        return any(
+            term in compact
+            for term in [
+                "再多几个",
+                "多来几个",
+                "多推荐几个",
+                "还有吗",
+                "还有没有",
+                "再推荐几个",
+                "再来几个",
+                "继续推荐",
+                "换几款",
+                "换几个",
+                "更多",
+            ]
+        )
+
     def _is_strong_purchase(self, compact: str, lower: str) -> bool:
         if self._is_travel_buy_request(compact):
             return True
@@ -148,9 +170,11 @@ class ConversationModeRouter:
             return False
         if re.fullmatch(r"\d{2,6}", compact):
             return True
+        if re.fullmatch(r"\d{3,6}的", compact):
+            return True
         if re.search(r"(?:\d{1,6}(?:\.\d+)?(?:k|千|万)?|[一二两三四五六七八九十]+(?:千|万)?)(?:元|块|rmb)?(?:左右|上下|附近|价位|档)", compact, re.I):
             return True
-        if compact in {"随便", "都行", "不限", "默认", "无所谓", "你看着推荐", "看你推荐"}:
+        if compact in {"随便", "都行", "不限", "默认", "无所谓", "你看着推荐", "看你推荐", "是", "是的", "对", "对的", "嗯", "没错"}:
             return True
         return any(
             term in compact

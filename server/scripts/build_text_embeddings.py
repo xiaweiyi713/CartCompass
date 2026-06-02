@@ -26,6 +26,8 @@ def main() -> None:
     written = store.precompute_missing(limit=args.limit)
     provider, model = store.identity
     print(f"wrote {written} text embedding vectors using {provider}/{model}")
+    if store.client.disabled_reason:
+        print(f"embedding disabled: {store.client.disabled_reason}")
 
 
 if __name__ == "__main__":

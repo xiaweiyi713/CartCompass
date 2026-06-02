@@ -11,6 +11,8 @@ from app.llm.router import ModelRouter
 from app.llm.schemas import (
     ConstraintInput,
     ConstraintOutput,
+    ConversationPlan,
+    ConversationPlanInput,
     GroundedAnswerPacket,
     GroundedProductFact,
 )
@@ -19,6 +21,33 @@ from app.models.schemas import LLMConfigRequest, LLMStatus, LLMTestRequest, Prod
 from app.observability import observability
 from app.rag.product_repository import SearchConstraints
 from app.recovery import notice
+
+
+_PLANNER_SYSTEM = (
+    "你是电商导购助手的「对话规划器」。根据完整对话历史和用户最新一句话，判断这一轮意图，"
+    "只输出一个 JSON 对象（不要 Markdown、不要解释）。\n"
+    "字段：\n"
+    "- intent，从以下选一个：smalltalk(闲聊/情绪/寒暄，无购物意图)、product_knowledge(问商品/成分/参数等知识但没说要买)、"
+    "weather(问天气)、recommend(想买/挑选/找商品/推荐/筛选)、compare(对比已出现的商品)、"
+    "cart(加购/改数量/删除/下单/结算)、product_qa(追问上一轮某款商品的评价/来源/规格/是否适合)、"
+    "after_sale(退换货/保修/售后)、budget_plan(给定预算配一套)、travel_bundle(出行/旅行带什么)、"
+    "feedback(对上一轮推荐反馈：太贵/换品牌/平替/升级/不喜欢)、clarify(有购物意向但信息太少需先追问)。\n"
+    "- shopping_intent_level：0=纯闲聊；1-2=模糊兴趣(先口头帮忙别急着出商品)；3=明确想看商品；4=交易。\n"
+    "- reply：仅当 intent 是 smalltalk/product_knowledge/weather/clarify 时，写一段自然、简洁、口语化的中文回复；"
+    "其余 intent 一律留空字符串（商品文案由后端生成）。\n"
+    "- rationale：一句话判断依据。\n"
+    "原则：① 自然融合——用户只是闲聊或表达情绪时 intent=smalltalk、level=0，给共情/陪聊回复，绝不硬推商品，"
+    "可在合适时轻轻一句“需要的话我可以帮你挑”。② 顺着上下文——若历史刚推荐过商品，用户说“第二款”“刚才那个”“再便宜点”，"
+    "结合历史判断为 compare/cart/product_qa/feedback。③ 不要编造：reply 里不得出现具体商品名、价格、优惠、库存。"
+    "④ 拿不准但像购物：用 clarify，并在 reply 里礼貌追问预算/类目/偏好。\n"
+    "示例(只示意字段，实际请结合历史)：\n"
+    '用户“今天好累啊不想动” → {"intent":"smalltalk","shopping_intent_level":0,"reply":"辛苦啦，先歇会儿~需要的话我随时帮你挑点东西","rationale":"纯情绪闲聊"}\n'
+    '用户“我下周去三亚玩几天” → {"intent":"smalltalk","shopping_intent_level":1,"reply":"三亚不错呀！要是想让我帮你按天气配齐防晒、穿搭和出行用品，说一声就行","rationale":"只是分享行程，未明确要买，可轻提供帮助"}\n'
+    '用户“去三亚帮我配齐要带的东西” → {"intent":"travel_bundle","shopping_intent_level":3,"reply":"","rationale":"明确要按出行配清单"}\n'
+    '用户“推荐降噪耳机，1000以内” → {"intent":"recommend","shopping_intent_level":3,"reply":"","rationale":"明确找商品"}\n'
+    '历史里刚推荐过耳机，用户“第二款有差评吗” → {"intent":"product_qa","shopping_intent_level":3,"reply":"","rationale":"追问上一轮第二款"}\n'
+    '用户“把第一款加到购物车” → {"intent":"cart","shopping_intent_level":4,"reply":"","rationale":"加购操作"}'
+)
 
 
 class LLMGateway:
@@ -67,6 +96,21 @@ class LLMGateway:
                         "exclude_brands, exclude_terms, sort_preference。"
                     ),
                 },
+                {"role": "user", "content": input_data.model_dump_json()},
+            ],
+        )
+
+    async def plan_turn(self, input_data: ConversationPlanInput, session_id: str = "default") -> ConversationPlan | None:
+        """LLM conversation planner: classify intent in context and (for chat
+        turns) draft a natural reply. Returns None when the model is unconfigured
+        or the output fails schema validation, so the caller can fall back to the
+        deterministic rule router."""
+        return await self._safe_structured_call(
+            task="conversation_planning",
+            session_id=session_id,
+            schema=ConversationPlan,
+            messages=[
+                {"role": "system", "content": _PLANNER_SYSTEM},
                 {"role": "user", "content": input_data.model_dump_json()},
             ],
         )

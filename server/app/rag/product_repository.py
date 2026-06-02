@@ -55,10 +55,21 @@ class ProductRepository:
         return payload if isinstance(payload, dict) else {}
 
     def search(self, query: str, constraints: SearchConstraints, limit: int = 5) -> list[Product]:
+        # Embed the query OUTSIDE the lock: this is a network call when a text
+        # embedding model is configured, and holding the retrieval lock during it
+        # would serialize every concurrent search. Returns None instantly when
+        # embeddings are not configured, and is memo-cached per unique query.
+        semantic_query_vector = self.semantic_store.embed_query(self._query_text(query, constraints))
         with self._lock:
-            return self._search_locked(query, constraints, limit)
+            return self._search_locked(query, constraints, limit, semantic_query_vector)
 
-    def _search_locked(self, query: str, constraints: SearchConstraints, limit: int) -> list[Product]:
+    def _search_locked(
+        self,
+        query: str,
+        constraints: SearchConstraints,
+        limit: int,
+        semantic_query_vector: list[float] | None,
+    ) -> list[Product]:
         started_at = time.perf_counter()
         cache_key = self.retrieval_cache.key(
             query=query,
@@ -89,7 +100,6 @@ class ProductRepository:
         observability.increment("retrieval_cache_misses")
         rows = self._candidate_rows(constraints)
         query_vector = self.vectorizer.embed(self._query_text(query, constraints))
-        semantic_query_vector = self.semantic_store.embed_query(self._query_text(query, constraints))
         candidate_rows: list[sqlite3.Row] = []
         for row in rows:
             if not self._matches_constraints(row, constraints):

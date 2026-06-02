@@ -4,12 +4,12 @@ import asyncio
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import AsyncIterator
 
 from app.agent.after_sale_policy import AfterSalePolicyService
 from app.agent.budget_planner import BudgetPlanner
-from app.agent.conversation_mode import ConversationModeRouter
+from app.agent.conversation_mode import ConversationModeDecision, ConversationModeRouter
 from app.agent.cart import CartService
 from app.agent.constraint_parser import ConstraintParser
 from app.agent.grounding_guard import GroundingGuard
@@ -22,7 +22,7 @@ from app.agent.travel_intent import parse_travel_context
 from app.agent.user_profile import UserProfileService
 from app.agent.weather_service import WeatherService
 from app.llm.gateway import LLMGateway
-from app.llm.schemas import ConstraintInput, ConstraintOutput
+from app.llm.schemas import ConstraintInput, ConstraintOutput, ConversationPlanInput
 from app.models.schemas import ChatRequest
 from app.observability import observability
 from app.rag.product_repository import ProductRepository, SearchConstraints
@@ -69,6 +69,7 @@ class AgentOrchestrator:
         trace_token = observability.set_current_trace(trace_id)
         started_at = time.perf_counter()
         first_token_seen = False
+        assistant_chunks: list[str] = []
         try:
             async for event in self._handle(request):
                 if event["event"] == "token" and not first_token_seen:
@@ -76,11 +77,14 @@ class AgentOrchestrator:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
                     observability.record_latency("sse_first_token_latency_ms", first_token_ms)
                     observability.add_current_step("sse_first_token", {"latency_ms": round(first_token_ms, 2)})
+                if event["event"] == "token" and isinstance(event.get("data"), str):
+                    assistant_chunks.append(event["data"])
                 if event["event"] == "done" and isinstance(event.get("data"), dict):
                     event = {**event, "data": {**event["data"], "trace_id": trace_id}}
                 self._record_stream_event(event)
                 yield f"event: {event['event']}\n"
                 yield f"data: {json.dumps(event['data'], ensure_ascii=False)}\n\n"
+            self._record_transcript(request.session_id, request.message, "".join(assistant_chunks))
             observability.finish_trace(trace_id, "ok")
         except Exception as exc:
             observability.add_current_step("error", {"message": str(exc)})
@@ -141,12 +145,7 @@ class AgentOrchestrator:
             yield {"event": "done", "data": {"ok": True, "mode": "general_chat"}}
             return
 
-        mode = self.mode_router.route(
-            message,
-            has_last_products=bool(session.last_product_ids),
-            has_pending_clarification=bool(session.pending_clarification),
-            has_active_shopping_context=bool(session.constraints.category),
-        )
+        mode, plan = await self._route_mode(request.session_id, message, session)
         observability.add_current_step(
             "conversation_mode",
             {
@@ -156,11 +155,13 @@ class AgentOrchestrator:
                 "need_product_cards": mode.need_product_cards,
                 "need_tool_call": mode.need_tool_call,
                 "reason": mode.reason,
+                "planner": plan.intent if plan else None,
             },
         )
+        plan_reply = plan.reply.strip() if plan and plan.reply else ""
         if mode.mode == "general_chat":
             observability.increment("general_chat_turns")
-            async for event in self._handle_general_chat(request.session_id, message):
+            async for event in self._handle_general_chat(request.session_id, message, reply=plan_reply or None):
                 yield event
             return
         if mode.mode == "weather_query":
@@ -170,46 +171,53 @@ class AgentOrchestrator:
             return
         if mode.mode == "product_knowledge":
             observability.increment("product_knowledge_turns")
-            async for event in self._handle_product_knowledge(request.session_id, message):
+            async for event in self._handle_product_knowledge(request.session_id, message, reply=plan_reply or None):
                 yield event
             return
         if mode.mode == "weak_purchase_intent":
             observability.increment("weak_purchase_intents")
-            text = self._weak_purchase_prompt(message)
+            text = self.guard.sanitize_chat(plan_reply) or self._weak_purchase_prompt(message)
             async for token in self._tokens(text):
                 yield {"event": "token", "data": token}
             yield {"event": "done", "data": {"ok": True, "mode": "weak_purchase_intent", "needs_clarification": True}}
             return
 
-        if self.intent.is_compare(lowered):
+        if self._planned(plan, "compare") or self.intent.is_compare(lowered):
             observability.increment("compare_intents")
             observability.add_current_step("intent", {"name": "compare", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_compare(message, session.last_product_ids):
                 yield event
             return
 
-        if self.intent.is_cart(lowered):
+        if self._planned(plan, "cart") or self.intent.is_cart(lowered):
             observability.increment("cart_intents")
             observability.add_current_step("intent", {"name": "cart", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_cart(request.session_id, message, session.last_product_ids):
                 yield event
             return
 
-        if self.intent.is_feedback(message, session.last_product_ids):
+        if self._planned(plan, "feedback") or self.intent.is_feedback(message, session.last_product_ids):
             observability.increment("feedback_intents")
             observability.add_current_step("intent", {"name": "feedback", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_feedback(request.session_id, message, session.last_product_ids):
                 yield event
             return
 
-        if self.intent.is_after_sale(message):
+        if self.intent.is_more_results(message, session.last_product_ids):
+            observability.increment("more_results_intents")
+            observability.add_current_step("intent", {"name": "more_results", "last_product_ids": session.last_product_ids[:5]})
+            async for event in self._handle_more_results(request.session_id, message):
+                yield event
+            return
+
+        if self._planned(plan, "after_sale") or self.intent.is_after_sale(message):
             observability.increment("after_sale_policy_intents")
             observability.add_current_step("intent", {"name": "after_sale_policy", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_after_sale_policy(message, session.last_product_ids):
                 yield event
             return
 
-        if self.intent.is_product_qa(message, session.last_product_ids):
+        if self._planned(plan, "product_qa") or self.intent.is_product_qa(message, session.last_product_ids):
             observability.increment("product_qa_intents")
             observability.add_current_step("intent", {"name": "product_qa", "last_product_ids": session.last_product_ids[:5]})
             async for event in self._handle_product_qa(message, session.last_product_ids):
@@ -249,7 +257,9 @@ class AgentOrchestrator:
             )
             travel_plan = await self.llm.travel_need_plan(message, session_id=request.session_id)
             weather_context = await self.weather.lookup(travel.destination) if travel.destination else None
-            bundle = self.travel_planner.build(message, travel_plan, weather_context=weather_context)
+            bundle = await asyncio.to_thread(
+                self.travel_planner.build, message, travel_plan, weather_context=weather_context
+            )
             products = list(bundle.products)
             previous_constraints = session.pending_constraints or session.constraints
             previous_phone_context = (
@@ -345,17 +355,17 @@ class AgentOrchestrator:
             fallback = RecommendationReply(self._fallback_response_text(message, products[:3], constraints), "fallback")
             streamed_chunks: list[str] = []
             pending = ""
-            emitted_prefix = False
             answer_started = False
+            answer_emitted = False
             stream_blocked = False
+            # Emit the grounded prefix immediately (deterministic), so first-token
+            # latency tracks retrieval time rather than the model's TTFT. The LLM
+            # elaboration then streams after this safe prefix.
+            async for token in self._tokens("以下信息来自本地商品库。"):
+                has_streamed_tokens = True
+                yield {"event": "token", "data": token}
+            streamed_chunks.append("以下信息来自本地商品库。")
             async for chunk in self.llm.stream_recommendation_reply(message, products, constraints, session_id=request.session_id):
-                if not emitted_prefix:
-                    prefix = "以下信息来自本地商品库。"
-                    async for token in self._tokens(prefix):
-                        has_streamed_tokens = True
-                        yield {"event": "token", "data": token}
-                    streamed_chunks.append(prefix)
-                    emitted_prefix = True
                 pending += chunk
                 if not answer_started:
                     answer_start = self.output_sanitizer.answer_start_index(pending)
@@ -381,6 +391,7 @@ class AgentOrchestrator:
                     break
                 streamed_chunks.append(pending)
                 has_streamed_tokens = True
+                answer_emitted = True
                 yield {"event": "token", "data": pending}
                 pending = ""
             if pending and not stream_blocked:
@@ -393,6 +404,7 @@ class AgentOrchestrator:
                 elif self.output_sanitizer.is_safe_stream_segment("".join(streamed_chunks), pending, products, constraints):
                     streamed_chunks.append(pending)
                     has_streamed_tokens = True
+                    answer_emitted = True
                     yield {"event": "token", "data": pending}
                 else:
                     stream_blocked = True
@@ -402,6 +414,13 @@ class AgentOrchestrator:
                 observability.add_current_step("llm_stream_guard", {"valid": False, "mode": "segment_blocked"})
                 reply = fallback
                 async for token in self._tokens("\n" + fallback.text):
+                    has_streamed_tokens = True
+                    yield {"event": "token", "data": token}
+            elif not answer_emitted:
+                # Prefix emitted but the model returned nothing usable → stream the
+                # deterministic recommendation so the user still gets a real answer.
+                reply = fallback
+                async for token in self._tokens(fallback.text):
                     has_streamed_tokens = True
                     yield {"event": "token", "data": token}
             elif streamed_text:
@@ -433,6 +452,85 @@ class AgentOrchestrator:
             yield {"event": "fallback", "data": notice("model_unavailable").model_dump()}
         yield {"event": "done", "data": {"ok": True, "mode": "shopping_assist"}}
 
+    async def _route_mode(self, session_id: str, message: str, session):
+        """LLM planner first (natural, context-aware routing); deterministic rule
+        router as fallback when the model is unconfigured or returns invalid output."""
+        rule_mode = self.mode_router.route(
+            message,
+            has_last_products=bool(session.last_product_ids),
+            has_pending_clarification=bool(session.pending_clarification),
+            has_active_shopping_context=bool(session.constraints.category),
+        )
+        if not self.llm.status(session_id).configured:
+            return rule_mode, None
+        # Latency fast-path: skip the planner LLM call for high-confidence explicit
+        # intents (cart/checkout, explicit compare/qa/feedback/after-sale, or a
+        # specific "recommend + category + price/sub/preference" request). The
+        # planner is reserved for ambiguous turns where chat↔shop disambiguation
+        # actually matters — keeping first-token latency low on explicit commands.
+        if self._high_confidence_route(message, rule_mode, session):
+            observability.add_current_step("planner_fast_path", {"mode": rule_mode.mode, "reason": "high_confidence_rule"})
+            return rule_mode, None
+        plan = await self.llm.plan_turn(
+            ConversationPlanInput(
+                user_message=message,
+                history=session.recent_transcript(8),
+                has_last_products=bool(session.last_product_ids),
+                has_active_category=bool(session.constraints.category),
+                cart_item_count=len(self.cart.state(session_id).items),
+            ),
+            session_id=session_id,
+        )
+        if not plan:
+            return rule_mode, None
+        return self._plan_to_mode(plan, rule_mode), plan
+
+    def _high_confidence_route(self, message: str, rule_mode: ConversationModeDecision, session) -> bool:
+        lowered = message.lower()
+        last = session.last_product_ids
+        if rule_mode.mode == "transaction":
+            return True
+        if self.intent.is_compare(lowered) or self.intent.is_cart(lowered):
+            return True
+        if self.intent.is_feedback(message, last) or self.intent.is_after_sale(message) or self.intent.is_product_qa(message, last):
+            return True
+        # Specific (not vague) recommendation request: category plus at least one
+        # concrete constraint. Broad asks like "推荐手机" still go to the planner.
+        if rule_mode.mode == "shopping_assist":
+            parsed = self.parser.parse(message)
+            if parsed.category and (parsed.max_price or parsed.min_price or parsed.sub_category or parsed.include_terms):
+                return True
+        return False
+
+    def _plan_to_mode(self, plan, fallback: ConversationModeDecision) -> ConversationModeDecision:
+        if plan.intent == "unknown":
+            return fallback
+        mapping = {
+            "smalltalk": "general_chat",
+            "product_knowledge": "product_knowledge",
+            "weather": "weather_query",
+            "clarify": "weak_purchase_intent",
+            "cart": "transaction",
+        }
+        mode_name = mapping.get(plan.intent, "shopping_assist")
+        return ConversationModeDecision(
+            mode=mode_name,
+            shopping_intent_level=max(0, min(4, plan.shopping_intent_level)),
+            need_rag=mode_name == "shopping_assist",
+            need_product_cards=mode_name == "shopping_assist" and plan.shopping_intent_level >= 3,
+            need_tool_call=mode_name == "transaction",
+            reason=f"llm_planner:{plan.intent}",
+        )
+
+    @staticmethod
+    def _planned(plan, intent_name: str) -> bool:
+        return plan is not None and plan.intent == intent_name
+
+    def _record_transcript(self, session_id: str, user_message: str, assistant_text: str) -> None:
+        session = self.sessions.get(session_id)
+        session.add_turn("user", user_message)
+        session.add_turn("assistant", assistant_text)
+
     def _base_constraints_for_message(self, session, parsed_constraints):
         base_constraints = session.pending_constraints or session.constraints
         if parsed_constraints.category and base_constraints.category and parsed_constraints.category != base_constraints.category:
@@ -446,6 +544,11 @@ class AgentOrchestrator:
 
     async def _refine_constraints_with_llm(self, session_id: str, message: str, session, parsed_constraints) -> object:
         if not self.llm.status(session_id).configured:
+            return parsed_constraints
+        # Latency fast-path: when deterministic parsing already pinned a category,
+        # skip the LLM constraint-fill call (the common explicit-request case).
+        # Only spend an LLM round-trip when the rule parser came back empty.
+        if parsed_constraints.category:
             return parsed_constraints
         output = await self.llm.parse_constraints(
             ConstraintInput(
@@ -599,16 +702,18 @@ class AgentOrchestrator:
                 roles.append(role)
         return "、".join(roles[:5])
 
-    async def _handle_general_chat(self, session_id: str, message: str) -> AsyncIterator[dict]:
-        text = await self.llm.general_chat(message, mode="general_chat", session_id=session_id)
+    async def _handle_general_chat(self, session_id: str, message: str, reply: str | None = None) -> AsyncIterator[dict]:
+        text = reply or await self.llm.general_chat(message, mode="general_chat", session_id=session_id)
+        text = self.guard.sanitize_chat(text)
         if not text:
             text = self._general_chat_fallback(message)
         async for token in self._tokens(text):
             yield {"event": "token", "data": token}
         yield {"event": "done", "data": {"ok": True, "mode": "general_chat"}}
 
-    async def _handle_product_knowledge(self, session_id: str, message: str) -> AsyncIterator[dict]:
-        text = await self.llm.general_chat(message, mode="product_knowledge", session_id=session_id)
+    async def _handle_product_knowledge(self, session_id: str, message: str, reply: str | None = None) -> AsyncIterator[dict]:
+        text = reply or await self.llm.general_chat(message, mode="product_knowledge", session_id=session_id)
+        text = self.guard.sanitize_chat(text)
         if not text:
             text = self._product_knowledge_fallback(message)
         async for token in self._tokens(text):
@@ -759,6 +864,47 @@ class AgentOrchestrator:
         yield {"event": "products", "data": [item.model_dump() for item in alternatives]}
         yield {"event": "profile", "data": profile.model_dump()}
         yield {"event": "done", "data": {"ok": True, "feedback": feedback}}
+
+    async def _handle_more_results(self, session_id: str, message: str) -> AsyncIterator[dict]:
+        session = self.sessions.get(session_id)
+        constraints = self._continued_constraints(session)
+        products = await self._search_products(self._continued_query(message, constraints), constraints, limit=12)
+        products = self._business_rank_products(message, constraints, products)[:5]
+        session.pending_constraints = None
+        session.pending_clarification = None
+        session.constraints = replace(constraints, exclude_product_ids=[])
+        session.last_product_ids = [product.product_id for product in products]
+        if not products:
+            text = "我按上一轮条件继续找了一遍，但当前商品库里没有更多合适候选。可以放宽预算、品牌或换一个侧重点。"
+            async for token in self._tokens(text):
+                yield {"event": "token", "data": token}
+            yield {"event": "fallback", "data": empty_recommendation_notice(text, constraints).model_dump()}
+            yield {"event": "done", "data": {"ok": True, "mode": "shopping_assist"}}
+            return
+
+        names = "、".join(self._response_product_name(product) for product in products[:3])
+        text = f"可以，我按上一轮条件继续找，并避开刚刚展示过的款式。这几款也可以看：{names}。"
+        async for token in self._tokens(text):
+            yield {"event": "token", "data": token}
+        yield {"event": "products", "data": [product.model_dump() for product in products]}
+        yield {"event": "done", "data": {"ok": True, "mode": "shopping_assist"}}
+
+    def _continued_constraints(self, session) -> SearchConstraints:
+        base = session.pending_constraints or session.constraints
+        if not base.category and session.last_product_ids:
+            product = self.products.get(session.last_product_ids[0])
+            if product:
+                base = SearchConstraints(category=product.category, sub_category=product.sub_category)
+        return replace(base, exclude_product_ids=list(dict.fromkeys(session.last_product_ids)))
+
+    def _continued_query(self, message: str, constraints: SearchConstraints) -> str:
+        parts = [
+            message,
+            constraints.category or "",
+            constraints.sub_category or "",
+            " ".join(constraints.include_terms),
+        ]
+        return " ".join(part for part in parts if part).strip() or message
 
     async def _handle_after_sale_policy(self, message: str, last_product_ids: list[str]) -> AsyncIterator[dict]:
         target_id = self.intent.target_product_id(message, last_product_ids)
@@ -984,6 +1130,8 @@ class AgentOrchestrator:
 
     def _clarification_prompt(self, message: str, constraints, current_constraints) -> str | None:
         if self.intent.is_casual_no_preference(message) and constraints.category:
+            return None
+        if self.intent.is_affirmative_confirmation(message) and self.intent.has_enough_signal(constraints):
             return None
         if self.intent.has_specific_product_signal(message, constraints):
             return None

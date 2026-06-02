@@ -97,6 +97,7 @@ class ObservabilityStore:
     def snapshot(self, product_stats: dict[str, Any]) -> dict[str, Any]:
         return {
             "product_stats": product_stats,
+            "performance_metrics": self._performance_metrics(),
             "derived_metrics": self._derived_metrics(),
             "counters": dict(sorted(self.counters.items())),
             "latencies": {name: self._latency_summary(values) for name, values in sorted(self.latencies.items())},
@@ -107,8 +108,12 @@ class ObservabilityStore:
         data = self.snapshot(product_stats)
         counters = data["counters"]
         derived_metrics = data["derived_metrics"]
+        performance_metrics = data["performance_metrics"]
         latencies = data["latencies"]
         traces = data["recent_traces"]
+        performance_cards = "".join(
+            self._metric_card(label, str(value)) for label, value in performance_metrics.items()
+        )
         product_cards = "".join(
             self._metric_card(label, str(value)) for label, value in product_stats.items()
         )
@@ -169,6 +174,8 @@ class ObservabilityStore:
     <p>商品覆盖、Agent 调用、延迟分布和最近 Trace 都在这里汇总。</p>
   </header>
   <main>
+    <h2>⚡ 性能关键指标（实测）</h2>
+    <section class="grid">{performance_cards or '<div class="card">暂无性能数据：发起几次对话和一次拍照找货后刷新即可看到首Token延迟与缓存命中率</div>'}</section>
     <h2>商品与数据质量</h2>
     <section class="grid">{product_cards}</section>
     <h2>性能与缓存</h2>
@@ -211,6 +218,25 @@ class ObservabilityStore:
             "recommendation_cache_hit_rate": self._hit_rate("recommendation_cache_hits", "recommendation_cache_misses"),
         }
 
+    def _performance_metrics(self) -> dict[str, str]:
+        """Headline, measured performance numbers for the demo/defense:
+        first-token latency, cache hit rates (with counts), and key stage latencies."""
+        return {
+            "首Token延迟 p50": self._latency_card("sse_first_token_latency_ms", "p50", "ms", 0),
+            "首Token延迟 p95": self._latency_card("sse_first_token_latency_ms", "p95", "ms", 0),
+            "LLM首字延迟 p50": self._latency_card("llm_grounded_answer_first_chunk_latency_ms", "p50", "ms", 0),
+            "检索缓存命中率": self._hit_rate_with_count("retrieval_cache_hits", "retrieval_cache_misses"),
+            "推荐缓存命中率": self._hit_rate_with_count("recommendation_cache_hits", "recommendation_cache_misses"),
+            "检索延迟 p50": self._latency_card("retrieval_latency_ms", "p50", "ms", 1),
+            "拍照找货延迟 p50": self._latency_card("image_search_latency_ms", "p50", "ms", 0),
+        }
+
+    def _latency_card(self, series: str, stat: str, unit: str, decimals: int) -> str:
+        summary = self._latency_summary(self.latencies.get(series, deque()))
+        if not summary["count"]:
+            return "n/a"
+        return f"{summary[stat]:.{decimals}f} {unit}"
+
     def _hit_rate(self, hit_counter: str, miss_counter: str) -> str:
         hits = self.counters.get(hit_counter, 0)
         misses = self.counters.get(miss_counter, 0)
@@ -218,6 +244,14 @@ class ObservabilityStore:
         if total <= 0:
             return "n/a"
         return f"{hits / total:.1%}"
+
+    def _hit_rate_with_count(self, hit_counter: str, miss_counter: str) -> str:
+        hits = self.counters.get(hit_counter, 0)
+        misses = self.counters.get(miss_counter, 0)
+        total = hits + misses
+        if total <= 0:
+            return "n/a"
+        return f"{hits / total:.1%} ({hits}/{total})"
 
     def _percentile(self, values: list[float], percent: int) -> float:
         if len(values) == 1:

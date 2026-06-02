@@ -113,6 +113,7 @@ class ConstraintParser:
             r"(\d+(?:\.\d+)?)\s*(?:元|块|rmb)?\s*(?:以内|以下|内|之内)",
             r"预算\s*(\d+(?:\.\d+)?)",
             r"不超过\s*(\d+(?:\.\d+)?)",
+            r"(\d{3,6}(?:\.\d+)?)\s*(?:元|块|rmb)?\s*的",
         ]
         for pattern in patterns:
             match = re.search(pattern, message, re.I)

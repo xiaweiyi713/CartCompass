@@ -40,6 +40,7 @@ class ModelRouter:
     def temperature_for_task(self, task: str) -> float:
         return {
             "intent_classification": 0.0,
+            "conversation_planning": 0.0,
             "constraint_parsing": 0.0,
             "travel_need_planning": 0.1,
             "answer_generation": 0.2,

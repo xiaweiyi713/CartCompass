@@ -93,6 +93,31 @@ class IntentRules:
         compact = self.compact(message)
         return any(term in compact for term in ["太贵", "便宜点", "平替", "高端", "升级", "换品牌", "换个品牌", "别的品牌", "不喜欢", "喜欢这款", "喜欢这个"])
 
+    def is_more_results(self, message: str, last_product_ids: list[str]) -> bool:
+        if not last_product_ids:
+            return False
+        compact = self.compact(message)
+        return any(
+            term in compact
+            for term in [
+                "再多几个",
+                "多来几个",
+                "多推荐几个",
+                "还有吗",
+                "还有没有",
+                "再推荐几个",
+                "再来几个",
+                "继续推荐",
+                "换几款",
+                "换几个",
+                "更多",
+            ]
+        )
+
+    def is_affirmative_confirmation(self, message: str) -> bool:
+        compact = self.compact(message)
+        return compact in {"是", "是的", "对", "对的", "嗯", "嗯嗯", "没错", "对呀", "对啊", "是啊", "是呀"}
+
     def is_after_sale(self, message: str) -> bool:
         compact = self.compact(message)
         return any(term in compact for term in ["售后", "退换", "退货", "换货", "保修", "质保", "运费险", "七天无理由", "能退吗", "能换吗"])

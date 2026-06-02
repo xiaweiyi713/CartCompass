@@ -21,6 +21,46 @@ class ConstraintOutput(BaseModel):
     sort_preference: str | None = None
 
 
+class ConversationPlanInput(BaseModel):
+    user_message: str
+    history: list[dict] = Field(default_factory=list)
+    has_last_products: bool = False
+    has_active_category: bool = False
+    cart_item_count: int = 0
+
+
+class ConversationPlan(BaseModel):
+    """The LLM planner's decision for one turn: what the user wants, how strong
+    the shopping intent is, and (for conversational turns) a natural reply.
+
+    Product facts are never produced here — shopping intents are dispatched to
+    deterministic tools that read the catalog, so grounding is preserved."""
+
+    intent: Literal[
+        "smalltalk",
+        "product_knowledge",
+        "weather",
+        "recommend",
+        "compare",
+        "cart",
+        "product_qa",
+        "after_sale",
+        "budget_plan",
+        "travel_bundle",
+        "feedback",
+        "clarify",
+        "unknown",
+    ] = "unknown"
+    # 0 = pure chat, 1-2 = vague interest (offer help, no cards), 3 = explicit
+    # recommendation, 4 = transaction (cart / checkout).
+    shopping_intent_level: int = 0
+    # Natural-language reply for conversational intents only (smalltalk /
+    # product_knowledge / weather / clarify). Empty for catalog-backed intents,
+    # whose text comes from the grounded answer pipeline.
+    reply: str = ""
+    rationale: str = ""
+
+
 class GroundedProductFact(BaseModel):
     product_id: str
     name: str

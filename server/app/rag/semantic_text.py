@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import io
 import json
 import math
 import re
@@ -8,6 +10,7 @@ import sqlite3
 from dataclasses import dataclass
 
 import httpx
+from PIL import Image
 
 from app.config import (
     TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT,
@@ -34,6 +37,7 @@ class TextEmbeddingConfig:
 class TextEmbeddingClient:
     def __init__(self, config: TextEmbeddingConfig | None = None) -> None:
         self.config = config or TextEmbeddingConfig()
+        self.disabled_reason: str | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -43,28 +47,78 @@ class TextEmbeddingClient:
     def identity(self) -> tuple[str, str]:
         return self.config.provider, self.config.model
 
+    @property
+    def is_multimodal(self) -> bool:
+        # Doubao vision embeddings (e.g. doubao-embedding-vision-*) use the
+        # /embeddings/multimodal endpoint with a structured `input` list and a
+        # `data: {embedding: [...]}` response, unlike OpenAI-style text embeddings.
+        return "vision" in (self.config.model or "").lower()
+
     def embed(self, text: str) -> list[float] | None:
-        if not self.config.is_configured:
+        if not self.config.is_configured or self.disabled_reason:
             return None
-        endpoint = self._embedding_endpoint()
+        if self.is_multimodal:
+            body = {"model": self.config.model, "input": [{"type": "text", "text": text}]}
+        else:
+            body = {"model": self.config.model, "input": text}
+        payload = self._post(body, disable_on_client_error=True)
+        return self._vector_from_payload(payload) if payload else None
+
+    def embed_image(self, image_bytes: bytes) -> list[float] | None:
+        """Embed an image into the shared image-text space (multimodal models
+        only). Enables cross-modal "photo → product" search. A bad image does not
+        disable the client (unlike a config-level auth/endpoint error)."""
+        if not self.config.is_configured or self.disabled_reason or not self.is_multimodal:
+            return None
+        data_uri = self._image_data_uri(image_bytes)
+        if not data_uri:
+            return None
+        body = {"model": self.config.model, "input": [{"type": "image_url", "image_url": {"url": data_uri}}]}
+        payload = self._post(body, disable_on_client_error=False)
+        return self._vector_from_payload(payload) if payload else None
+
+    def _post(self, body: dict, disable_on_client_error: bool) -> dict | None:
         try:
             with httpx.Client(timeout=self.config.timeout_seconds) as client:
                 response = client.post(
-                    endpoint,
+                    self._embedding_endpoint(),
                     headers={
                         "Authorization": f"Bearer {self._sanitize_api_key(self.config.api_key)}",
                         "Content-Type": "application/json",
                     },
-                    json={"model": self.config.model, "input": text},
+                    json=body,
                 )
                 response.raise_for_status()
-                payload = response.json()
+                return response.json()
+        except httpx.HTTPStatusError as exc:
+            if disable_on_client_error and exc.response.status_code in {400, 401, 403, 404}:
+                self.disabled_reason = f"embedding endpoint returned HTTP {exc.response.status_code}"
+            return None
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
             return None
-        data = payload.get("data") if isinstance(payload, dict) else None
-        if not isinstance(data, list) or not data:
+
+    def _image_data_uri(self, image_bytes: bytes) -> str | None:
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as raw:
+                rgb = raw.convert("RGB")
+                longest = max(rgb.size)
+                if longest > 768:
+                    ratio = 768 / longest
+                    rgb = rgb.resize((max(1, int(rgb.width * ratio)), max(1, int(rgb.height * ratio))))
+                buffer = io.BytesIO()
+                rgb.save(buffer, format="JPEG", quality=85)
+            encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+            return f"data:image/jpeg;base64,{encoded}"
+        except (OSError, ValueError):
             return None
-        vector = data[0].get("embedding") if isinstance(data[0], dict) else None
+
+    def _vector_from_payload(self, payload: object) -> list[float] | None:
+        data = payload.get("data") if isinstance(payload, dict) else None
+        vector = None
+        if isinstance(data, dict):  # multimodal: {"data": {"embedding": [...]}}
+            vector = data.get("embedding")
+        elif isinstance(data, list) and data and isinstance(data[0], dict):  # text: {"data": [{"embedding": [...]}]}
+            vector = data[0].get("embedding")
         if not isinstance(vector, list):
             return None
         values = [float(item) for item in vector if isinstance(item, int | float)]
@@ -72,9 +126,12 @@ class TextEmbeddingClient:
 
     def _embedding_endpoint(self) -> str:
         base_url = self.config.base_url.rstrip("/")
-        if base_url.endswith("/embeddings"):
+        suffix = "/embeddings/multimodal" if self.is_multimodal else "/embeddings"
+        if base_url.endswith(suffix):
             return base_url
-        return f"{base_url}/embeddings"
+        if base_url.endswith("/embeddings"):
+            base_url = base_url[: -len("/embeddings")]
+        return f"{base_url}{suffix}"
 
     def _sanitize_api_key(self, api_key: str) -> str:
         compact = re.sub(r"[\s\u200b\u200c\u200d\ufeff\u2060]+", "", api_key or "")
@@ -112,6 +169,22 @@ class TextEmbeddingStore:
             if vector:
                 self._query_cache[key] = vector
         return self._query_cache.get(key)
+
+    def cached_vector(self, product_id: str) -> list[float] | None:
+        """Read a product's precomputed text vector for the current model, by id
+        only (ignores text-hash freshness). Used by cross-modal image search to
+        compare an image vector against product text vectors in the shared space."""
+        provider, model = self.client.identity
+        row = self.conn.execute(
+            "SELECT vector_json FROM text_embedding_vectors WHERE product_id=? AND provider=? AND model=?",
+            (product_id, provider, model),
+        ).fetchone()
+        if not row:
+            return None
+        try:
+            return normalize_vector([float(item) for item in json.loads(row["vector_json"])])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
 
     def vector_for_product(self, product_id: str, source_text: str) -> list[float] | None:
         if not self.client.is_configured:

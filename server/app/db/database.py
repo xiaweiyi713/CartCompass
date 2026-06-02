@@ -1,14 +1,33 @@
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from pathlib import Path
 from typing import Iterator
 
 from app.config import DB_PATH
 
+# Committed snapshot used to bootstrap a fresh checkout / container so the demo
+# catalog is available with zero manual ingest steps.
+SEED_DB_PATH = DB_PATH.parent / "seed.sqlite3"
+
+
+def _seed_if_missing(db_path: Path) -> None:
+    """Copy the committed seed database into place when the runtime DB is absent.
+
+    This only applies to the default production DB path. Unit tests that pass
+    their own temp path (or an explicit DB) are never seeded, so fixtures stay
+    isolated and deterministic.
+    """
+    if db_path != DB_PATH or db_path.exists() or not SEED_DB_PATH.exists():
+        return
+    shutil.copyfile(SEED_DB_PATH, db_path)
+
 
 def connect(db_path: Path = DB_PATH) -> sqlite3.Connection:
+    db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    _seed_if_missing(db_path)
     conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

@@ -14,6 +14,20 @@ class SessionState:
     pending_constraints: SearchConstraints | None = None
     pending_clarification: str | None = None
     last_product_ids: list[str] = field(default_factory=list)
+    # Recent dialogue turns ({"role": "user"|"assistant", "content": str}), used
+    # as context for the LLM conversation planner and for cross-turn references.
+    transcript: list[dict] = field(default_factory=list)
+
+    def add_turn(self, role: str, content: str, max_turns: int = 16) -> None:
+        text = (content or "").strip()
+        if not text:
+            return
+        self.transcript.append({"role": role, "content": text[:600]})
+        if len(self.transcript) > max_turns:
+            del self.transcript[: len(self.transcript) - max_turns]
+
+    def recent_transcript(self, limit: int = 8) -> list[dict]:
+        return self.transcript[-limit:]
 
 
 class SessionStore:

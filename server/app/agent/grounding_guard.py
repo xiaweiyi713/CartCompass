@@ -22,6 +22,31 @@ RISKY_UNGROUNDED_TERMS = [
 
 
 class GroundingGuard:
+    def sanitize_chat(self, text: str | None) -> str | None:
+        """Lightweight guard for free-chat / knowledge / clarify replies, which
+        have no product context and never pass through `validate`. Drops any
+        sentence that quotes a concrete price or makes a promo/stock claim, so a
+        casual reply cannot invent coupons, discounts, stock, or prices. Returns
+        the cleaned text, or None if nothing safe remains (caller then uses a
+        deterministic fallback)."""
+        if not text:
+            return None
+        normalized = text.strip()
+        if not normalized:
+            return None
+        sentences = [part for part in re.split(r"(?<=[。！？!?\n])", normalized) if part.strip()]
+        safe = [part for part in sentences if not self._chat_sentence_risky(part)]
+        cleaned = "".join(safe).strip()
+        if cleaned != normalized:
+            observability.increment("grounding_chat_sanitized")
+            observability.add_current_step("grounding_chat", {"status": "sanitized"})
+        return cleaned or None
+
+    def _chat_sentence_risky(self, sentence: str) -> bool:
+        if any(term in sentence for term in RISKY_UNGROUNDED_TERMS):
+            return True
+        return bool(re.search(r"\d+(?:\.\d+)?\s*(?:元|块|RMB|rmb)", sentence))
+
     def validate(
         self,
         text: str | None,

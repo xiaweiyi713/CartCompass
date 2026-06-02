@@ -15,6 +15,7 @@ from app.observability import observability
 from app.rag.image_understanding import ImageUnderstandingResult, OptionalVisionImageUnderstanding
 from app.rag.product_repository import ProductRepository, SearchConstraints
 from app.rag.semantic_image import OptionalSemanticImageEncoder
+from app.rag.semantic_text import cosine_similarity
 
 
 @dataclass(frozen=True)
@@ -48,8 +49,18 @@ class ImageSearchService:
         query_image = self._image_from_bytes(image_bytes)
         query_features = self._features(query_image)
         understanding = self.image_understanding.analyze(query_image, query=query)
+        # Cross-modal: embed the uploaded image into the shared image-text space
+        # and compare against products' cached text vectors. The strongest
+        # semantic signal when a multimodal embedding model is configured.
+        embed_client = self.products.semantic_store.client
+        query_embed = (
+            embed_client.embed_image(image_bytes)
+            if embed_client.is_configured and embed_client.is_multimodal
+            else None
+        )
         visual_scores: dict[str, float] = {}
         semantic_scores: dict[str, float] = {}
+        embed_scores: dict[str, float] = {}
         semantic_available = self.semantic_encoder.available
         for product in self.products.all():
             image_path = PRODUCT_IMAGE_DIR / f"{product.product_id}.jpg"
@@ -65,11 +76,16 @@ class ImageSearchService:
             except OSError:
                 continue
             visual_scores[product.product_id] = self._similarity(query_features, candidate_features)
+            if query_embed is not None:
+                product_vec = self.products.semantic_store.cached_vector(product.product_id)
+                if product_vec:
+                    embed_scores[product.product_id] = max(0.0, cosine_similarity(query_embed, product_vec))
 
         intent_query = self._intent_query(query, understanding)
         text_ranks = self._text_ranks(intent_query, understanding, limit=max(limit * 4, 20)) if intent_query else {}
         candidate_ids = set(visual_scores)
         candidate_ids.update(text_ranks)
+        candidate_ids.update(embed_scores)
 
         scored: list[tuple[float, Product]] = []
         for product_id in candidate_ids:
@@ -79,8 +95,10 @@ class ImageSearchService:
             visual_score = visual_scores.get(product_id, 0.0)
             text_score = text_ranks.get(product_id, 0.0)
             semantic_score = semantic_scores.get(product_id)
+            embed_score = embed_scores.get(product_id)
             understanding_score = self._understanding_score(product, understanding)
             fused_score = self._fused_score(
+                embed_score,
                 semantic_score,
                 visual_score,
                 text_score,
@@ -88,7 +106,7 @@ class ImageSearchService:
                 understanding_score,
                 understanding.available,
             )
-            product.reason = self._reason(semantic_score, visual_score, text_score, query, understanding, understanding_score)
+            product.reason = self._reason(embed_score, semantic_score, visual_score, text_score, query, understanding, understanding_score)
             product.match_score = int(fused_score * 100)
             product.match_reasons = self._match_reasons(
                 semantic_score,
@@ -98,6 +116,8 @@ class ImageSearchService:
                 understanding,
                 understanding_score,
             )
+            if embed_score is not None:
+                product.match_reasons.insert(0, f"语义图文匹配 {embed_score * 100:.0f}%（多模态向量,拍照找货)")
             product.risk_flags = [
                 self._semantic_status(semantic_available),
                 self._understanding_status(understanding),
@@ -140,6 +160,7 @@ class ImageSearchService:
 
     def _fused_score(
         self,
+        embed_score: float | None,
         semantic_score: float | None,
         visual_score: float,
         text_score: float,
@@ -148,7 +169,15 @@ class ImageSearchService:
         has_understanding: bool,
     ) -> float:
         weighted: list[tuple[float, float]] = []
-        if semantic_score is not None:
+        if embed_score is not None:
+            # Multimodal image-text embedding is the dominant cross-modal signal.
+            weighted.append((embed_score, 0.52))
+            weighted.append((visual_score, 0.18))
+            if semantic_score is not None:
+                weighted.append((semantic_score, 0.12))
+            if has_text_signal:
+                weighted.append((text_score, 0.12))
+        elif semantic_score is not None:
             weighted.extend([(semantic_score, 0.42), (visual_score, 0.28)])
             if has_text_signal:
                 weighted.append((text_score, 0.16))
@@ -164,6 +193,7 @@ class ImageSearchService:
 
     def _reason(
         self,
+        embed_score: float | None,
         semantic_score: float | None,
         visual_score: float,
         text_score: float,
@@ -173,6 +203,7 @@ class ImageSearchService:
     ) -> str:
         intent_query = self._intent_query(query, understanding)
         fused = self._fused_score(
+            embed_score,
             semantic_score,
             visual_score,
             text_score,
@@ -180,6 +211,12 @@ class ImageSearchService:
             understanding_score,
             understanding.available,
         )
+        if embed_score is not None:
+            text_part = f"，文本意图 {text_score * 100:.1f}%" if intent_query else ""
+            return (
+                f"多模态图文向量匹配 {fused * 100:.1f}%："
+                f"图文语义 {embed_score * 100:.1f}%，轻量视觉 {visual_score * 100:.1f}%{text_part}。"
+            )
         if semantic_score is not None and intent_query:
             label = "CLIP语义+VLM图文融合" if understanding.available else "CLIP语义+图文融合"
             understanding_part = f"，图像理解 {understanding_score * 100:.1f}%" if understanding.available else ""

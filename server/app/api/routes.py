@@ -39,11 +39,19 @@ after_sale_policy = AfterSalePolicyService()
 
 @router.get("/health")
 def health() -> dict:
+    embedding_client = products.semantic_store.client
     return {
         "ok": True,
         "product_count": len(products.all()),
         "llm_configured": agent.llm.is_configured,
         "llm": agent.llm.status().model_dump(),
+        "text_embedding": {
+            "configured": products.semantic_store.is_configured,
+            "provider": products.semantic_store.identity[0],
+            "model": products.semantic_store.identity[1],
+            "base_url": embedding_client.config.base_url,
+            "disabled_reason": embedding_client.disabled_reason,
+        },
     }
 
 
