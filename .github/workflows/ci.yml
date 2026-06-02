@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend tests (offline / deterministic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r server/requirements.txt
+
+      - name: Run pytest
+        env:
+          # Force the deterministic, network-free fallback path. The grounded
+          # agent, retrieval and guards are all exercised without any provider key.
+          PYTHONPATH: server
+          ARK_API_KEY: ""
+          TEXT_EMBEDDING_API_KEY: ""
+          VISION_UNDERSTANDING_API_KEY: ""
+        run: pytest server/tests -q

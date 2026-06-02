@@ -28,14 +28,27 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
+
+def _env_list(name: str, default: list[str]) -> list[str]:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return [item.strip() for item in value.split(",") if item.strip()]
+
 DB_PATH = Path(os.getenv("SHOPGUIDE_DB", SERVER_DIR / "storage" / "shopguide.sqlite3"))
 STORAGE_DIR = DB_PATH.parent
 STATIC_DIR = Path(os.getenv("SHOPGUIDE_STATIC_DIR", SERVER_DIR / "static"))
 PRODUCT_IMAGE_DIR = STATIC_DIR / "product_images"
 
+# CORS allowlist. Default "*" keeps local demos and the native iOS client
+# friction-free; set a comma-separated whitelist (e.g.
+# "https://app.example.com,https://admin.example.com") to lock it down for
+# a public deployment.
+CORS_ALLOW_ORIGINS = _env_list("CORS_ALLOW_ORIGINS", ["*"])
+
 ARK_API_KEY = os.getenv("ARK_API_KEY", "")
 ARK_BASE_URL = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-ARK_MODEL = os.getenv("ARK_MODEL", "ep-20260514111645-lmgt2")
+ARK_MODEL = os.getenv("ARK_MODEL", "doubao-seed-2-0-lite-260428")
 ARK_TIMEOUT_SECONDS = float(os.getenv("ARK_TIMEOUT_SECONDS", "8"))
 
 LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "ark")
@@ -47,7 +60,7 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
 
 TEXT_EMBEDDING_BASE_URL = os.getenv("TEXT_EMBEDDING_BASE_URL", ARK_BASE_URL)
 TEXT_EMBEDDING_MODEL = os.getenv("TEXT_EMBEDDING_MODEL", "")
-TEXT_EMBEDDING_API_KEY = os.getenv("TEXT_EMBEDDING_API_KEY", ARK_API_KEY)
+TEXT_EMBEDDING_API_KEY = os.getenv("TEXT_EMBEDDING_API_KEY") or ARK_API_KEY
 TEXT_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("TEXT_EMBEDDING_TIMEOUT_SECONDS", "8"))
 TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT = _env_bool("TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT", False)
 TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP = _env_bool("TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP", False)

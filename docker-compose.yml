@@ -16,6 +16,16 @@ services:
       VISION_UNDERSTANDING_JSON_MODE: ${VISION_UNDERSTANDING_JSON_MODE:-false}
       VISION_UNDERSTANDING_IMAGE_DETAIL: ${VISION_UNDERSTANDING_IMAGE_DETAIL:-low}
       VISION_UNDERSTANDING_MAX_IMAGE_SIDE: ${VISION_UNDERSTANDING_MAX_IMAGE_SIDE:-768}
+      # Multimodal text/image embedding — required to demonstrate semantic
+      # retrieval and cross-modal photo search inside the container. The API key
+      # falls back to ARK_API_KEY when TEXT_EMBEDDING_API_KEY is unset.
+      TEXT_EMBEDDING_MODEL: ${TEXT_EMBEDDING_MODEL:-doubao-embedding-vision-251215}
+      TEXT_EMBEDDING_API_KEY: ${TEXT_EMBEDDING_API_KEY:-}
+      TEXT_EMBEDDING_BASE_URL: ${TEXT_EMBEDDING_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      TEXT_EMBEDDING_TIMEOUT_SECONDS: ${TEXT_EMBEDDING_TIMEOUT_SECONDS:-20}
+      TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP: ${TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP:-true}
+      # CORS allowlist; default "*" for demos, set a comma-separated whitelist in prod.
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-*}
     volumes:
       - ./server/storage:/app/server/storage
       - ./server/static:/app/server/static
