@@ -9,9 +9,17 @@ server/.env
 server/storage/*.sqlite3
 server/storage/*.sqlite3-shm
 server/storage/*.sqlite3-wal
+# Keep the committed seed snapshot so a fresh checkout/container has the demo catalog.
+!server/storage/seed.sqlite3
 server/evaluation/output/
-server/data_pipeline/output/
+# Ignore the heavy/derived crawl artifacts (Kaggle stress CSVs ~120MB and raw dumps),
+# but keep the small cleaned product JSON so the crawled-data provenance stays in the repo.
+server/data_pipeline/output/kaggle_stress/
+server/data_pipeline/output/*/products_raw.json
+server/data_pipeline/output/*/products_clean_raw.json
 data/extracted/
+# Bulky reference dataset archive — not needed at runtime (seed.sqlite3 is committed).
+data/*.zip
 client-ios/DerivedData/
 client-ios/*.xcuserdata/
 client-ios/ShopGuide.xcodeproj/xcuserdata/
