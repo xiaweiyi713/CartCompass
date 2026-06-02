@@ -1,61 +1,111 @@
 # LLM Architecture
 
-ShopGuide uses a controlled Agent architecture:
+ShopGuide uses a **controlled agent** architecture: an LLM conversation planner
+decides *what to do* each turn, but every product fact comes from deterministic
+tools over the local catalog, so grounding is preserved.
 
 ```text
 iOS App
   -> FastAPI AgentOrchestrator
-  -> deterministic state / retrieval / ranking / tools / guard
-  -> task-scoped LLMGateway
+  -> LLM conversation planner (intent + shopping level + chat reply)   [LLM]
+  -> deterministic tools: retrieval / ranking / cart / compare / qa    [no LLM]
+  -> grounded answer generation + GroundingGuard                       [LLM, guarded]
 ```
 
-The LLM is not the product recommender. It is used only for bounded language tasks:
+## Conversation planner (the brain)
 
-- `travel_need_plan`: convert free-form travel needs into structured shopping slots.
-- `generate_grounded_answer`: turn a backend-selected product evidence packet into natural Chinese.
-- `parse_constraints`: when a session LLM is configured, validated JSON output fills fields the deterministic parser missed; deterministic parsing remains the source of truth for already detected category, budget, exclusions, and offline fallback.
+`LLMGateway.plan_turn` (schema `ConversationPlan`) classifies each turn **in the
+context of recent dialogue history** and returns validated JSON:
 
-Intent routing is intentionally deterministic in `ConversationModeRouter`, so the production path does not carry an unused LLM intent-classification task. This keeps first-turn latency and fallback behavior predictable for demo and evaluation.
+- `intent`: smalltalk / product_knowledge / weather / recommend / compare / cart /
+  product_qa / after_sale / budget_plan / travel_bundle / feedback / clarify.
+- `shopping_intent_level` (0–4): 0 = pure chat (never show product cards), 1–2 =
+  vague interest (offer help, no cards), 3 = explicit recommendation, 4 = transaction.
+- `reply`: a natural Chinese reply for conversational intents only (smalltalk /
+  knowledge / weather / clarify). Empty for catalog-backed intents, whose text is
+  produced by the grounded answer pipeline.
 
-Product selection remains deterministic:
+This is what lets the agent behave like Doubao: it chats naturally, does **not**
+hard-sell on emotional/small talk, and pivots into shopping (or resolves
+"the second one" / "the one you just mentioned") using the transcript.
+
+### Planner-first, rules as fallback, fast-path for explicit intents
+
+`AgentOrchestrator._route_mode`:
+
+1. If the LLM is **not configured / times out / returns invalid JSON** → fall back
+   to the deterministic `ConversationModeRouter`. Offline and evaluation stay stable.
+2. If a **high-confidence explicit intent** is detected by cheap rules (cart /
+   checkout, explicit compare / product-qa / feedback / after-sale, or a clear
+   "recommend + category/price" request) → skip the planner call entirely and route
+   by rules. This keeps first-token latency low (one LLM call instead of two).
+3. Otherwise (ambiguous turns, where natural chat↔shop disambiguation matters) →
+   call the planner.
+
+Conversation history is kept in `SessionState.transcript` (recent turns,
+TTL/LRU-bounded) and passed to the planner each turn.
+
+## Product selection stays deterministic
 
 ```text
-ConstraintParser / optional LLM constraint fill / profile merge
-  -> ProductRepository structured filters
-  -> BM25 + optional text embedding + hashing fallback hybrid retrieval
-  -> business ranker / trust signals
+ConstraintParser (+ optional LLM constraint fill) / profile merge
+  -> ProductRepository SQL prefilter (category / price / exclusions)
+  -> BM25 + semantic vector (Doubao multimodal embedding) + hashing fallback + trust
+  -> business ranker
   -> GroundingGuard
-  -> programmatic products SSE event
+  -> programmatic `products` SSE event
 ```
 
-The model never generates product cards, image URLs, SKU prices, cart mutations, or checkout state. Those are produced by backend tools from the local product database.
+The model never emits product cards, image URLs, SKU prices, cart mutations, or
+checkout state. Those come from backend tools over SQLite.
 
-## Grounded Answer Packet
+## Multimodal embedding (text retrieval + cross-modal image search)
 
-Before answer generation, the orchestrator constructs a `GroundedAnswerPacket`:
+`server/app/rag/semantic_text.py` calls `doubao-embedding-vision` via the
+`/embeddings/multimodal` endpoint (2048-dim, shared image-text space):
 
-- user query
-- merged constraints
-- selected backend products
-- evidence, match reasons, risk flags
-- forbidden facts, such as coupons, stock, sales rank, or unsupported parameters
+- **Text retrieval**: product `search_text` and the query are embedded; cosine
+  similarity feeds the hybrid ranker. Product vectors are precomputed at startup
+  and cached in `text_embedding_vectors` (SQLite).
+- **Cross-modal photo search** (`image_search.py`): the uploaded image is embedded
+  and compared against products' cached text vectors in the same space, so a photo
+  of a phone surfaces phones, a sunscreen photo surfaces sunscreens, etc. This is
+  the dominant signal, fused with VLM image understanding, light visual features,
+  and text intent. Falls back gracefully when embeddings are not configured.
 
-`LLMGateway.generate_grounded_answer` sends only this packet to the provider. Non-streaming responses are checked by `GroundingGuard` before they are returned.
+## Grounded answers and guards
 
-For live streaming, the orchestrator uses segment-level guarded streaming: chunks are buffered until punctuation or a short length threshold, checked for unsupported prices and risky claims, then emitted to iOS. If a segment contains ungrounded terms such as coupons, stock, discounts, or unsupported prices, the unsafe segment is never sent and the response switches to the deterministic local fallback.
+Before answer generation the orchestrator builds a `GroundedAnswerPacket` (user
+query, merged constraints, selected products, evidence/match-reasons/risk-flags,
+and a forbidden-facts list). `generate_grounded_answer` sends only this packet.
 
-## Structured Output Guardrails
+- **Streaming** uses segment-level guarded streaming: chunks are buffered to
+  punctuation / a short length, checked for unsupported prices and risky claims
+  (coupons, stock, discounts), and only safe segments are emitted; otherwise the
+  turn switches to the deterministic local fallback.
+- **Chat replies** from the planner (`smalltalk` / `product_knowledge` / `clarify`)
+  also pass a lightweight risk-word check, so casual replies cannot invent
+  promotions, stock, or prices either.
 
-Task outputs use Pydantic schemas in `server/app/llm/schemas.py`.
+## Structured-output guardrails
 
-JSON text from providers is parsed by `server/app/llm/validators/json_validator.py`. Invalid JSON or schema mismatches return `None`, allowing the orchestrator to fall back to deterministic logic instead of letting malformed model output affect business behavior.
+Task outputs use Pydantic schemas in `server/app/llm/schemas.py`; provider JSON is
+parsed by `server/app/llm/validators/json_validator.py` with a repair retry.
+Invalid JSON / schema mismatch returns `None`, so malformed model output never
+reaches business logic — the orchestrator falls back to deterministic behavior.
 
-## Model Routing
+## Model routing
 
-`server/app/llm/router.py` keeps a small capability registry. Current defaults:
+`server/app/llm/router.py` capability registry and per-task temperatures:
 
-- Intent / constraints: temperature `0.0`
-- Travel planning: temperature `0.1`
-- Grounded answers: temperature `0.2`
+- Conversation planning / intent / constraints: temperature `0.0` (deterministic routing)
+- Travel planning: `0.1`
+- Grounded answers: `0.2`
 
-This keeps recommendation behavior stable while still allowing DeepSeek or another OpenAI-compatible model to improve language understanding and explanations.
+## Tests & evaluation
+
+- Unit tests (`server/tests`) run with the key blanked, exercising the deterministic
+  fallback path (no regressions when offline).
+- `server/evaluation/run_eval.py` adds capability-gated cases: chat-pivots-to-shopping
+  (works in both modes) and cross-modal image search (`requires: embedding`, skipped
+  offline). Skipped cases are excluded from the pass rate.

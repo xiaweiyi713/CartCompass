@@ -1,32 +1,65 @@
-# ShopGuide iOS 多模态智能导购
+# ShopGuide · 基于 RAG 的多模态电商导购 AI Agent
 
-这是基于赛题 PDF 和 `project_plan_ios.md` 搭建的端到端原生 iOS 多模态智能导购应用：
+> 字节 AI 全栈挑战赛参赛作品 · 原生 iOS(SwiftUI)+ FastAPI 后端
+> **像豆包一样自然聊天,像导购一样精准选品,且商品事实零幻觉。**
 
-- FastAPI 后端：商品入库、SQLite 事实库、本地向量检索、SSE 流式回复、购物车接口。
-- SwiftUI iOS 客户端：聊天页、流式回复、商品卡片、商品详情、购物车入口。
-- 数据：当前 SQLite 商品库共 312 条商品，包含赛题示例数据、真实公开页面采集数据和真实 SKU 规格图片溯源。
+用户可以**打字、说话或拍照**,Agent 在正常对话里无缝插入选品、对比、加购、售后问答和旅行套装规划。所有商品事实(价格、SKU、库存、卖点)只来自本地商品库工具,经 GroundingGuard 校验——**模型不编造任何促销、价格或库存**。
 
-## 启动后端
+## ✨ 核心亮点
 
-后端需要 Python 3.10 或更高版本；推荐 Python 3.11。macOS 系统自带的旧版 `python3` 可能无法解析项目里的现代类型注解。
+| 亮点 | 说明 |
+|---|---|
+| 🧠 **可控 Agent(planner-first)** | LLM 对话规划器决定"做什么",选品/对比/加购/售后全部走确定性工具,兼得自然对话与零幻觉 |
+| 🛡️ **零幻觉 GroundingGuard** | 商品卡片只来自 SQLite;回复经段级流式校验,自动拦截编造的满减/优惠券/库存/价格,失败降级到本地确定性文案 |
+| 🖼️ **多模态:语音 + 跨模态图搜** | 流式语音识别 + 可调语速/音色 TTS + 语音连续对话;拍照用豆包多模态向量在**图文共享空间**里跨模态匹配同类商品 |
+| ⚡ **首 token < 1s 流式** | 显式购物意图走 fast-path 跳过二次 LLM 调用,确定性前缀先发,实测显式推荐首 token ~210ms |
+| 📊 **实测可观测 Dashboard** | `/admin/metrics` 展示首 token 延迟、p50/p95/p99、缓存命中率、Guard 拦截、全链路 Trace |
+| 🗂️ **真实数据 + 溯源** | 321 条商品(赛题示例 + Anker/Soundcore 公开页面采集 + Apple 官方 SKU 图),全部带来源字段 |
+
+## 🏗️ 架构
+
+```text
+┌──────────────── iOS 客户端 (SwiftUI, @Observable) ────────────────┐
+│  聊天流式 UI · 语音(ASR/TTS)· 拍照/相册 · 商品卡片/对比/购物车   │
+│  侧栏:偏好 · 模型大脑 · 隐私合规 · 历史会话(SwiftData)          │
+└───────────────────────────────┬───────────────────────────────────┘
+                                 │ SSE (token / products / cart / done+trace_id)
+┌───────────────────────────────▼───────────────────────────────────┐
+│                     FastAPI · AgentOrchestrator                     │
+│  ① LLM 对话规划器(意图 + 购物强度 + 闲聊回复)        [LLM]        │
+│  ② 确定性工具:检索 / 排序 / 对比 / 购物车 / 追问      [无 LLM]     │
+│  ③ grounded 回复生成 + GroundingGuard(段级流式)     [LLM, 受控]  │
+└───────────────────────────────┬───────────────────────────────────┘
+       SQL 预过滤 + BM25 + 豆包多模态向量 + hashing 兜底 + 可信度重排
+                                 │
+                    SQLite 事实库(321 商品 · 向量 · SKU · RAG 知识)
+```
+
+详见 `docs/architecture.md` 与 `docs/llm_architecture.md`。
+
+## 🚀 快速开始
+
+### 后端(Python 3.11 推荐)
 
 ```bash
 cd server
-python3 --version
 python3 -m pip install -r requirements.txt
-python scripts/ingest_products.py
 python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-也可以用 Docker 固定 Python 3.11 运行环境：
+> **开箱即用**:312+9=321 条演示商品库已作为种子快照提交在 `server/storage/seed.sqlite3`。首次启动检测不到运行库时会自动复制种子库,无需手动入库(Docker 同理)。
+>
+> **启用豆包/方舟能力**:复制 `server/.env.example` 为 `server/.env` 并填入 `ARK_API_KEY`,即可解锁 LLM 文案生成、多模态向量检索、跨模态拍照找货与 VLM 图像理解;未配置时全部自动降级到本地确定性逻辑,服务不中断。
+
+### Docker
 
 ```bash
-docker compose up --build shopguide-api
+docker compose up --build shopguide-api    # http://127.0.0.1:8000
 ```
 
-Compose 会挂载 `server/storage` 和 `server/static`，默认端口仍是 `http://127.0.0.1:8000`。需要启用豆包/方舟时，把 `ARK_API_KEY`、`VISION_UNDERSTANDING_API_KEY` 等环境变量导出后再启动。
+Compose 已透传 `ARK_*`、`VISION_UNDERSTANDING_*`、`TEXT_EMBEDDING_*`(多模态语义/图搜)和 `CORS_ALLOW_ORIGINS`,并挂载 `storage` / `static`、内置健康检查。
 
-## 启动 iOS
+### iOS
 
 ```bash
 cd client-ios
@@ -34,74 +67,52 @@ xcodegen generate
 open ShopGuide.xcodeproj
 ```
 
-在 iOS Simulator 里运行 `ShopGuide`，默认连接 `http://127.0.0.1:8000`。如需切换后端地址，可改 `client-ios/project.yml` 里的 `SHOPGUIDE_API_BASE_URL` 后重新运行 `xcodegen generate`，或在调试时写入 `UserDefaults` 的 `shopguide.apiBaseURL`。
+模拟器默认连接 `http://127.0.0.1:8000`。改后端地址:编辑 `client-ios/project.yml` 的 `SHOPGUIDE_API_BASE_URL` 后重跑 `xcodegen generate`,或调试时写入 `UserDefaults` 的 `shopguide.apiBaseURL`。
 
-## 已验证链路
+## 🧩 能力一览(可直接念给评委看的示例)
 
-- `GET /api/health` 返回当前商品数量。
-- `POST /api/chat/stream` 支持 SSE token + products + cart 事件。
-- `POST /api/chat/stream` 支持 `compare` 事件，可渲染结构化商品对比。
-- `POST /api/image_search` 支持图片上传和图文融合找货，会融合可选 VLM 图像理解、可选 CLIP 语义图像、轻量视觉特征和文本检索排名。
-- 图片找货默认接入 OpenAI-compatible VLM 模型 `doubao-seed-2-0-lite-260428`；只要提供 `VISION_UNDERSTANDING_API_KEY` 或 `ARK_API_KEY`，上传图会先被理解成品类、子类目、关键词和外观属性。未配置 key 或调用失败时不中断服务，继续使用 CLIP/轻量视觉 fallback。
-- 本地 VLM 演示已用方舟真实 endpoint 调参；`server/scripts/probe_vision_understanding.py` 可复现实测图片理解和融合排序。
-- 图片找货支持可选 CLIP 语义图像检索层：安装 `sentence-transformers` 并配置 `SHOPGUIDE_CLIP_MODEL` 后会自动启用；未安装时会在不中断服务的情况下降级到轻量视觉特征。
-- 文本检索已升级为结构化过滤 + BM25 + 可选真实 text embedding + hashing fallback + 可信度 reranker；商品向量默认通过脚本或启动预热写入，检索请求期不再批量调用 embedding 接口，并带 TTL/LRU 热门查询缓存。
-- 支持平替/升级款/换品牌：例如推荐后说 `第一款太贵了，有没有平替`、`换个品牌`、`有没有更高端一点的`。
-- 支持用户反馈闭环：`喜欢这款`、`不喜欢`、`太贵`、`换品牌` 会记录到用户画像的 `last_feedback`，并即时触发重排或替代品检索。
-- 支持售后/退换货政策问答：例如 `第一款售后和保修怎么说`，系统会基于 Demo 边界、商品来源和类目风险回答，不编造平台承诺。
-- 支持订单后推荐：模拟下单后返回配件、补充购买或复购候选，iOS 会自动展示为商品卡片。
-- 商品详情页展示数据来源、推荐依据、SKU 规格和真实规格图片来源。
-- 推荐结果包含 `match_score`、`match_reasons`、`risk_flags`，iOS 卡片和详情页会展示匹配分、命中依据和注意点。
-- iOS 已接入 AppIcon 资源，图标用对话气泡、搜索镜和商品包表达智能导购核心功能。
-- iPhone 17 Pro Max 的不同颜色 SKU 图片通过 `server/scripts/crawl_sku_images.py` 从 Apple 官方公开页面采集，本地只缓存真实图片，不生成伪造图。
-- 可选配置 `ARK_API_KEY` 启用豆包/Ark 文案生成；返回前会经过 Grounding Guard，风险回复自动降级到本地确定性文案。
-- 反选示例：`推荐适合油皮的防晒，200元以内，不要含酒精`。
-- 主动澄清示例：先问 `推荐手机`，Agent 会追问拍照/续航/性能/性价比和预算；再答 `拍照优先，预算4000` 会继承手机上下文继续推荐。
-- 长期偏好示例：说 `记住我以后护肤品不要含酒精，我是油皮，预算200`，之后再说 `推荐防晒` 会自动带上油皮、200 元预算和酒精排除条件；也可说 `查看我的偏好` 或 `清除我的偏好`。
-- 预算套装示例：`我1000元预算，下周去三亚，帮我配一套防晒和出行用品` 会返回结构化 Shopping Plan，包含必需项、可升级项、总价、剩余预算和每件商品的选择理由。
-- 替代品示例：推荐后说 `第一款太贵了，有没有平替` 会保持核心类目/偏好并降低价格；说 `换个品牌` 会避开当前品牌找同类替代。
-- 售后示例：推荐后问 `第一款能退换货吗`，Agent 会说明 Demo 不产生真实支付/物流/平台售后承诺，并提示核对公开来源页面。
-- 商品追问示例：推荐后继续问 `第一款差评主要说什么`、`这款适合敏感肌吗，有没有酒精`、`第一款不同规格怎么选`，Agent 会基于商品详情、FAQ、评论、SKU 和来源字段回答。
-- 购物车示例：先推荐手机，再说 `把第一款加到购物车，数量改成2`。
-- 购物车页支持增减数量、左滑删除、清空购物车和默认地址模拟下单。
-- iOS 模拟器已成功展示流式回复、商品卡片图片、卡片/详情页加购、对比卡片和图片找货。
+- **自然对话不硬推**:`今天好累啊不想动` → 共情闲聊,不弹商品卡片;`推荐降噪耳机,预算2000以内` → 直接给卡片。
+- **主动澄清**:先问 `推荐手机`,Agent 追问拍照/续航/性能/预算;再答 `拍照优先,预算4000` 继承上下文继续推荐。
+- **反选过滤**:`推荐适合油皮的防晒,200元以内,不要含酒精`。
+- **长期偏好记忆**:`记住我以后护肤品不要含酒精,我是油皮,预算200` → 之后说 `推荐防晒` 自动带上条件;可 `查看我的偏好` / `清除我的偏好`。
+- **替代/平替/换品牌**:推荐后 `第一款太贵了,有没有平替`、`换个品牌`、`有没有更高端一点的`。
+- **跨轮追问**:`第一款差评主要说什么`、`这款适合敏感肌吗,有没有酒精`、`第一款不同规格怎么选`(基于 FAQ/评论/SKU/来源)。
+- **预算套装**:`我1000元预算,下周去三亚,帮我配一套防晒和出行用品` → 结构化 Shopping Plan(必需/可升级项、总价、剩余预算、选择理由)。
+- **售后问答**:`第一款能退换货吗` → 说明 Demo 不产生真实支付/物流/平台承诺,提示核对公开来源,不编造政策。
+- **多模态语音**:点麦克风实时转写(聆听浮层);长按朗读按钮调语速/音色;开"语音连续对话"后说完自动发送并朗读回复。
+- **拍照找货**:上传商品图 → 豆包多模态向量在图文共享空间跨模态匹配同类(手机照片召回手机、防晒照片召回防晒),融合 VLM 理解 + 轻量视觉特征。
+- **购物车**:`把第一款加到购物车,数量改成2`;购物车页支持增减、左滑删除、清空、默认地址模拟下单。
 
-## 测试
+## ✅ 测试与评测
 
 ```bash
-PYTHONPATH=server python3 -m pytest server/tests -q
-PYTHONPATH=server python3 server/evaluation/run_eval.py
+PYTHONPATH=server python3 -m pytest server/tests -q          # 120 项后端测试(离线确定性)
+PYTHONPATH=server python3 server/evaluation/run_eval.py      # 能力评测,输出 JSON/HTML 报告
 ```
 
-当前后端测试覆盖健康检查、SSE 推荐、主动澄清、反选排除、上下文切换、旅行场景推荐、预算套装方案、长期偏好记忆、替代品/平替、用户反馈闭环、售后政策问答、订单后推荐、混合检索评分、可解释推荐评分、商品级追问问答、SKU 购物车、真实 SKU 图片溯源、模拟下单和图片搜索。
+- **测试覆盖**:健康检查、SSE 推荐/澄清/反选、上下文切换、旅行套装、长期偏好、替代品、反馈闭环、售后问答、订单后推荐、混合检索评分、可解释推荐、商品级追问、SKU 购物车、图片搜索、Agent planner 路由(mock LLM)等。
+- **评测能力项**:意图识别、约束抽取、反选过滤、多轮上下文、闲聊插购物、跨模态图搜(`requires: embedding`)、预算套装、来源 grounding 等,报告落在 `server/evaluation/output/`。
+- CI(GitHub Actions)在每次 push/PR 自动跑 pytest。
 
-自动化评测会运行 `server/evaluation/cases/` 下的意图识别、约束抽取、反选过滤、多轮上下文、长期偏好、预算套装、反馈闭环、售后政策、订单后推荐、购物车、图片找货和来源 grounding 用例，并生成：
+## 📊 可观测性
 
-- `server/evaluation/output/evaluation_report.json`
-- `server/evaluation/output/evaluation_report.html`
+后端启动后打开 `http://127.0.0.1:8000/admin/metrics`:商品覆盖率、公开来源占比、Agent 调用计数、Grounding Guard 拦截、购物车成功率、**首 token 延迟、LLM 首字延迟、检索/拍照延迟、缓存命中率、p50/p95/p99**。每个请求 `done` 事件带 `trace_id`,可 `GET /api/traces/{trace_id}` 回看意图识别→约束解析→候选过滤→检索→Guard→输出的全链路。
 
-## 可观测性 Dashboard
-
-后端运行后打开：
-
-```text
-http://127.0.0.1:8000/admin/metrics
-```
-
-Dashboard 展示商品覆盖率、公开来源占比、评论/SKU/规格图覆盖、Agent 调用计数、Grounding Guard 拦截、购物车成功率、图片检索延迟、SSE 首 token 延迟、p50/p95/p99 延迟和最近 Trace。单轮请求的 `done` 事件会带 `trace_id`，可通过 `GET /api/traces/{trace_id}` 查看意图识别、约束解析、候选过滤、检索结果、Grounding Guard 和输出事件。
-
-## 压力测试
+压力测试:
 
 ```bash
 python3 server/scripts/stress_test_retrieval.py --sample 1000 --concurrency 16 --p95-ms 800
 ```
 
-脚本会优先使用 Kaggle `olistbr/brazilian-ecommerce` 数据集生成查询；如果没有 Kaggle 凭证，也可以传入 `--csv-dir` 使用已下载的 CSV 文件夹。输出包含 QPS、p50/p95/p99/max 延迟和错误数。
+## 📚 文档
 
-## 文档
+| 文档 | 内容 |
+|---|---|
+| `docs/architecture.md` | 系统架构与模块说明 |
+| `docs/llm_architecture.md` | 可控 Agent、规划器、多模态嵌入与防幻觉 |
+| `docs/rag_design.md` | RAG、上下文、反选与防幻觉设计 |
+| `docs/api.md` | 接口文档 |
+| `docs/ui_design.md` | UI 与交互设计 |
+| `docs/demo_script.md` | 答辩演示脚本 |
 
-- `docs/architecture.md`：系统架构与模块说明。
-- `docs/api.md`：接口文档。
-- `docs/rag_design.md`：RAG、上下文、反选和防幻觉设计。
-- `docs/ui_design.md`：UI 和交互设计说明。
-- `docs/demo_script.md`：答辩演示脚本。
+> 注:赛题官方参考数据集(`ecommerce_agent_dataset`)体积较大,未纳入仓库;演示无需它(种子库已开箱即用)。如需从官方数据重建约 100 条基础数据,解压数据集到 `data/extracted/` 后运行 `python scripts/ingest_products.py`(会清表重写,不含另行采集的真实商品)。
