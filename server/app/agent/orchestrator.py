@@ -352,19 +352,27 @@ class AgentOrchestrator:
         reply = await self._cached_response_text(request.session_id, message, products, constraints)
         has_streamed_tokens = False
         if not reply:
-            fallback = RecommendationReply(self._fallback_response_text(message, products[:3], constraints), "fallback")
+            # The deterministic prefix already acknowledges any exclusion, so the
+            # streaming fallback must not repeat it (the non-streaming path keeps it).
+            fallback = RecommendationReply(
+                self._fallback_response_text(message, products[:3], constraints, include_exclusion=False),
+                "fallback",
+            )
             streamed_chunks: list[str] = []
             pending = ""
             answer_started = False
             answer_emitted = False
             stream_blocked = False
             # Emit the grounded prefix immediately (deterministic), so first-token
-            # latency tracks retrieval time rather than the model's TTFT. The LLM
-            # elaboration then streams after this safe prefix.
-            async for token in self._tokens("以下信息来自本地商品库。"):
+            # latency tracks retrieval time rather than the model's TTFT, and the
+            # negative-constraint acknowledgement ("已排除…") is guaranteed even when
+            # the LLM rephrases the answer without it. The LLM elaboration then
+            # streams after this safe prefix.
+            grounded_prefix = self._grounded_prefix(constraints)
+            async for token in self._tokens(grounded_prefix):
                 has_streamed_tokens = True
                 yield {"event": "token", "data": token}
-            streamed_chunks.append("以下信息来自本地商品库。")
+            streamed_chunks.append(grounded_prefix)
             async for chunk in self.llm.stream_recommendation_reply(message, products, constraints, session_id=request.session_id):
                 pending += chunk
                 if not answer_started:
@@ -1102,12 +1110,23 @@ class AgentOrchestrator:
     def _compact_for_match(self, text: str) -> str:
         return re.sub(r"[\s，。！？,.!?*_/\\-]+", "", text.lower())
 
-    def _fallback_response_text(self, message: str, products, constraints) -> str:
+    def _grounded_prefix(self, constraints) -> str:
+        """Deterministic streaming prefix. Always states the local-catalog source,
+        and—when the user gave exclusions—explicitly confirms they were honored, so
+        the negative-constraint acknowledgement survives even if the LLM rephrases
+        the answer without it."""
+        prefix = "以下信息来自本地商品库。"
+        excluded = list(dict.fromkeys(list(constraints.exclude_terms) + list(constraints.exclude_brands)))
+        if excluded:
+            prefix += f"已按你的要求排除{'、'.join(excluded)}相关商品。"
+        return prefix
+
+    def _fallback_response_text(self, message: str, products, constraints, include_exclusion: bool = True) -> str:
         names = "、".join(self._response_product_name(product) for product in products[:3])
         guard = "以下价格和商品信息都来自本地商品库。"
         if "对比" in message or "哪个" in message:
             return f"{guard} 我先把更匹配的几款放在前面：{names}。你可以点开商品卡片看详情，也可以继续说“对比前两款”。"
-        if constraints.exclude_terms or constraints.exclude_brands:
+        if include_exclusion and (constraints.exclude_terms or constraints.exclude_brands):
             excluded = "、".join(dict.fromkeys(constraints.exclude_terms + constraints.exclude_brands))
             return f"{guard} 我已经排除了 {excluded} 相关商品，优先推荐：{names}。"
         return f"{guard} 根据你的需求，我优先推荐这几款：{names}。"
