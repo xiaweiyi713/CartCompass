@@ -132,6 +132,8 @@ python3 server/scripts/stress_test_retrieval.py --sample 1000 --concurrency 16 -
 | `docs/runbook.md` | 干净环境启动、自检、Chroma 演示与回归测试步骤 |
 | `docs/ui_design.md` | UI 与交互设计 |
 | `docs/demo_script.md` | 答辩演示脚本 |
+| `docs/video_demo_flow.md` | 录制演示视频的逐镜头流程、口播和备用指令 |
+| `docs/full_presentation_script.md` | 极详细项目介绍稿件素材库 |
 | `docs/requirements_mapping.md` | 赛题要求逐项映射、验证命令和 Demo 顺序 |
 
 > 注:赛题官方参考数据集(`ecommerce_agent_dataset`)体积较大,未纳入仓库;演示无需它(种子库已开箱即用)。如需从官方数据重建约 100 条基础数据,解压数据集到 `data/extracted/` 后运行 `python scripts/ingest_products.py`(会清表重写,不含另行采集的真实商品)。
