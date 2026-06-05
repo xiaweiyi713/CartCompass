@@ -15,6 +15,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python scripts/ingest_products.py
+PYTHONPATH=. python scripts/self_check.py
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -145,6 +146,41 @@ search requests to fill missing product vectors.
 
 When configured, traces show `text_embedding(...)` in `retrieval_stack`; when it
 is unavailable, the server automatically falls back to `hashing_vector`.
+
+## Optional Chroma Vector Store
+
+The default demo is self-contained: SQLite stores product facts, chunks, SKU,
+mock stock, and local hashing vectors. To satisfy a standard vector-database
+deployment mode without adding Docker, install the optional dependency and set
+the backend:
+
+```bash
+pip install -r server/requirements-optional.txt
+export VECTOR_STORE_BACKEND=chroma
+export CHROMA_PATH=server/storage/chroma
+export CHROMA_COLLECTION=shopguide_products
+PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+On startup the server syncs SQLite `product_vectors` into the Chroma collection.
+Chroma only supplies vector similarity; structured filters, BM25, trust ranking,
+prices, SKU, stock, and product cards still come from SQLite. If Chroma is not
+installed or fails, the server falls back to the SQLite/hash vector store.
+`/api/health`, `/api/metrics`, and `/admin/metrics` expose the actual active
+backend so the demo can prove whether Chroma is really in use.
+
+## Product Chunks, Stock, and Guided Checkout
+
+`init_schema` maintains a `product_chunks` table from existing `rag_json`:
+`identity`, `detail`, `faq`, and `review`. Product follow-up QA reads those
+chunks before falling back to raw RAG JSON.
+
+Products expose `stock_status` and `inventory_count`. Cart add/update and both
+checkout paths validate mock inventory before creating orders.
+
+The chat stream emits an `order` event after Agent-guided checkout:
+`下单` -> confirm address -> order summary -> `确认下单`. The event contains the
+same `OrderState` shape as `/api/cart/checkout`.
 
 ## Useful Endpoints
 

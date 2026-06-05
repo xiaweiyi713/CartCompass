@@ -4,6 +4,15 @@
 
 商品数据被写入 SQLite 的 `products` 表，核心字段包括标题、品牌、类目、价格、主图、SKU、RAG 知识和搜索文本。`product_vectors` 保存本地 Hashing 向量，用于离线兜底检索；`text_embedding_vectors` 可选保存真实文本 embedding，用于语义向量检索。
 
+为了让 Chunking 策略可审计，启动时还会自动维护 `product_chunks` 表：
+
+- `identity` chunk：标题、品牌、类目、子类目，适合精确识别商品身份。
+- `detail` chunk：`marketing_description`，用于卖点、规格、材质、公开来源等详情证据。
+- `faq` chunk：官方 FAQ 的问答拼接，适合“适不适合”“怎么选”“来源可靠吗”等追问。
+- `review` chunk：用户评论和评分，适合差评、口碑、风险提示。
+
+`ProductQAService` 在商品级追问中会读取 `ProductRepository.get_chunks(product_id)`，优先返回命中的 chunk 片段；如果没有直接命中，再回退到原始 `rag_json` 和商品 evidence。这样答辩时可以展示从“商品原始资料 → chunk 表 → grounded answer”的路径。
+
 搜索文本由以下内容拼接：
 
 - 商品标题、品牌、类目、子类目。
@@ -20,7 +29,7 @@
    - 子类目
    - 包含偏好
    - 排除词、排除品牌
-4. 对剩余商品做向量相似检索：优先使用 `TEXT_EMBEDDING_*` 配置的真实 embedding，未配置或调用失败时自动回退到本地 Hashing 向量。
+4. 对剩余商品做向量相似检索：优先使用 `TEXT_EMBEDDING_*` 配置的真实 embedding；未配置时可选走本地 Chroma 向量库；如果 Chroma 未启用或不可用，自动回退到 SQLite 中的本地 Hashing 向量。
 5. 使用结构化命中进行加权，例如品牌、子类目、包含偏好。
 6. 返回前 N 个商品，并生成 grounded reason。
 
@@ -118,8 +127,22 @@ fused_score = semantic_image_score
 文本检索已从单一 hashing vector 升级为可配置双通道：
 
 ```text
-结构化过滤 -> BM25 -> text embedding(可选) -> hashing fallback -> 可信度 reranker
+结构化过滤 -> BM25 -> Chroma/text embedding(可选) -> hashing fallback -> 可信度 reranker
 ```
+
+如果评审要求看到标准向量数据库，可启用本地 Chroma 后端：
+
+```bash
+pip install -r server/requirements-optional.txt
+export VECTOR_STORE_BACKEND=chroma
+export CHROMA_PATH=server/storage/chroma
+export CHROMA_COLLECTION=shopguide_products
+PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Chroma 是可选增强，不是单点依赖。启动时 `ChromaVectorStore` 会优先读取当前 `TEXT_EMBEDDING_PROVIDER/MODEL` 对应的 `text_embedding_vectors`，同步到独立的 `shopguide_products_text_*` collection；检索时用同一 embedding 模型编码用户 query，再由 Chroma 返回语义相似度。结构化过滤、BM25、可信度 reranker 和商品事实仍由 SQLite 控制，避免向量库返回非商品库事实。
+
+如果没有配置 embedding、没有预计算真实向量，或 `chromadb` 未安装，系统会自动降级到 hashing collection / `SQLiteHashVectorStore`，本地演示不受影响。Trace 的 `retrieval_stack` 会显示 `Chroma text_embedding(...)`、`Chroma vector DB` 或 `hashing_vector`；商品 `match_reasons` 会显示 `Chroma语义向量`、`Chroma向量库`、`语义向量` 或 `本地向量`。
 
 启用真实语义检索时，设置：
 
@@ -132,9 +155,15 @@ PYTHONPATH=server python3 server/scripts/build_text_embeddings.py
 
 默认情况下，检索请求只读取已存在的商品 embedding，不会在一次用户请求里为大量商品逐个补向量；缺失商品会自动走 hashing fallback。可用 `server/scripts/build_text_embeddings.py` 离线预计算，或设置 `TEXT_EMBEDDING_PRECOMPUTE_ON_STARTUP=true` 让服务启动时补齐缺失向量；`TEXT_EMBEDDING_PRECOMPUTE_LIMIT` 可限制启动期写入数量。只有明确设置 `TEXT_EMBEDDING_ALLOW_REQUEST_UPSERT=true` 时，才允许请求期写入缺失商品向量。
 
-运行时 Trace 会把 `retrieval_stack` 标成 `text_embedding(...)`、`hybrid_text_embedding(...)` 或 `hashing_vector`，商品 `match_reasons` 也会区分“语义向量”和“本地向量”。这样答辩时可以展示生产级路径和离线 fallback：有 embedding 服务时语义召回更强，无 key 或模型不可用时仍保证本地演示稳定。
+运行时 Trace 会把 `retrieval_stack` 标成 `Chroma text_embedding(...)`、`text_embedding(...)`、`hybrid_text_embedding(...)` 或 `hashing_vector`，商品 `match_reasons` 也会区分“Chroma语义向量”“语义向量”和“本地向量”。这样答辩时可以展示生产级路径和离线 fallback：有 embedding 服务时语义召回更强，无 key 或模型不可用时仍保证本地演示稳定。
 
-热门检索还有一层 TTL/LRU 缓存：相同 query、结构化约束、limit 和向量后端身份会命中 `RetrievalCache`，直接返回深拷贝商品卡片，避免重复候选预筛、BM25 和向量重排。`/api/traces/{trace_id}` 的 `retrieval.cache_hit` 会标记命中状态，`/api/metrics` 和 `/admin/metrics` 会展示 `retrieval_cache_hit_rate`。
+热门检索还有一层 TTL/LRU 缓存：相同 query、结构化约束、limit 和向量后端身份会命中 `RetrievalCache`，直接返回深拷贝商品卡片，避免重复候选预筛、BM25 和向量重排。`/api/traces/{trace_id}` 的 `retrieval.cache_hit` 会标记命中状态，`/api/metrics` 和 `/admin/metrics` 会展示 `retrieval_cache_hit_rate`。可复现性能报告可以运行：
+
+```bash
+PYTHONPATH=server python3 server/scripts/measure_performance.py --repeat 2
+```
+
+脚本会输出 `server/evaluation/output/performance_report.json`，包含首 Token p50/p95、总耗时 p50/p95、检索缓存命中率和每轮 Trace。
 
 结构化过滤先处理类目、子类目、预算、排除词、排除品牌和排除商品 ID；BM25 负责关键词精确匹配；hashing vector 负责语义近似；可信度 reranker 会把公开来源、评论和 SKU 完整度计入排序。每个商品的 `match_reasons` 会追加类似 `混合检索：BM25 100 / 向量 42 / 结构化 20 / 可信度 65` 的解释，便于 Trace 和前端展示。
 

@@ -4,11 +4,16 @@
 
 ## 启动
 
-后端 **必须在项目根目录启动**(`.env` 里 `SHOPGUIDE_DB` 是相对路径,从 `server/` 目录启动会找错库、丢掉 321 商品和向量):
+后端 **必须用 Python 3.11(≥3.10)**。系统 / Xcode 自带的 `python3` 常是 3.9,直接建 venv 会在启动时报 `unsupported operand type(s) for |`(代码用了 3.10+ 的 `str | None` 注解):
 
 ```bash
-cd "/Users/xuwenyao/字节AI全栈挑战赛"          # 项目根,不要 cd server
-PYTHONPATH=server server/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd "/Users/xuwenyao/字节AI全栈挑战赛"          # 项目根
+python3.11 -m venv server/.venv               # 一次性:务必用 3.11,别用默认 python3
+source server/.venv/bin/activate
+python --version                              # 确认 Python 3.11.x(≥3.10),不是 3.9
+pip install -r server/requirements.txt
+# 启动(路径已 CWD 无关,从项目根或 server/ 目录启动都不会找错库)
+PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 `.env` 里的对话 / embedding / 图像理解三把 key 会自动加载,商品向量已预热,秒开。自检:
@@ -17,15 +22,16 @@ PYTHONPATH=server server/.venv/bin/python -m uvicorn app.main:app --host 127.0.0
 curl -s http://127.0.0.1:8000/api/health    # 期望 llm_configured=true、embedding configured=true、商品数 321
 ```
 
-iOS：
+iOS(工程已提交,**直接打开即可,无需 xcodegen**):
 
 ```bash
 cd client-ios
-xcodegen generate
 open ShopGuide.xcodeproj
 ```
 
-选择 iPhone 模拟器运行 `ShopGuide`(默认连 `http://127.0.0.1:8000`)。演示间想要干净上下文,点侧栏顶部「新对话」即可换新 session。
+选 iPhone 模拟器运行 `ShopGuide`(默认连 `http://127.0.0.1:8000`)。演示间想要干净上下文,点侧栏顶部「新对话」即可换新 session。
+
+> 只有改了 `project.yml` 才需要 `xcodegen generate`。若 Run 报 `Multiple commands produce '….app'`:`git checkout -- client-ios/ShopGuide.xcodeproj/project.pbxproj` 还原已提交工程,删 `~/Library/Developer/Xcode/DerivedData/ShopGuide-*` 后重开 Xcode。
 
 ## 演示 1：模糊需求主动澄清
 
@@ -160,18 +166,43 @@ open ShopGuide.xcodeproj
 
 1. 在详情页选一个 SKU 加入购物车。
 2. 返回聊天页，确认右上角购物车徽标。
-3. 打开购物车，修改数量、删除或模拟下单。
+3. 输入：
+
+```text
+我要下单
+```
+
+4. Agent 汇总订单并要求地址，继续输入：
+
+```text
+北京市朝阳区 Demo 路 1 号
+```
+
+5. Agent 再次汇总商品、地址和金额，继续输入：
+
+```text
+确认下单
+```
 
 预期：
 
 - 同商品不同 SKU 是独立购物车行项目。
 - 总价按 SKU 单价计算。
-- 模拟下单后聊天页自动出现订单后推荐商品，例如配件、补充购买或复购候选。
+- 加购、改数量和下单前会校验 mock 库存。
+- 模拟下单后聊天页出现独立订单卡，包含 `SG...` 订单号、地址、金额和商品数量；购物车清空。
+- 订单后推荐商品自动出现，例如配件、补充购买或复购候选。
 
 ## 演示 8：跨模态拍照找货(多模态向量)
 
 1. 点击聊天输入框左侧图片按钮(相机或相册)。
 2. 上传一张商品图,例如一副**耳机**或一台**手机**的图片。
+
+稳定样例见 `server/evaluation/cases/multimodal_demo_samples.json`，可优先使用：
+
+- `server/static/product_images/p_digital_016.jpg`：手机。
+- `server/static/product_images/p_anker_001_fc881685.jpg`：Anker 充电设备。
+- `server/static/product_images/p_beauty_001.jpg`：防晒。
+- `server/static/product_images/p_clothes_014.jpg`：防水徒步鞋。
 
 预期(讲解词):
 
@@ -285,7 +316,8 @@ python3 server/scripts/stress_test_retrieval.py --sample 1000 --concurrency 16 -
 
 - 商品推荐理由中出现 `混合检索：BM25 / 语义向量或本地向量 / 结构化 / 可信度`。
 - 未配置 `TEXT_EMBEDDING_*` 时，打开 `/api/traces/{trace_id}` 可看到 `retrieval_stack` 为 `structured_filter + BM25 + hashing_vector + trust_reranker`。
-- 配置文本 embedding 并运行 `server/scripts/build_text_embeddings.py` 后，Trace 会显示 `text_embedding(...)`，用于演示真语义向量检索。
+- 配置文本 embedding 并运行 `server/scripts/build_text_embeddings.py` 后，Trace 会显示 `text_embedding(...)`。
+- 同时启用 `VECTOR_STORE_BACKEND=chroma` 且已预计算真实向量时，Trace 会显示 `Chroma text_embedding(...)`，商品理由会出现 `Chroma语义向量`，用于演示标准向量数据库承载真实商品 embedding。
 
 ## 演示 14：售后 / 退换货政策问答
 
