@@ -46,6 +46,8 @@ def test_chat_trace_and_metrics_are_exposed() -> None:
     assert int(metrics["product_stats"]["商品总数"]) >= 100
     assert "derived_metrics" in metrics
     assert "retrieval_cache_hit_rate" in metrics["derived_metrics"]
+    assert metrics["vector_store"]["active_backend"] == products.vector_store.name
+    assert metrics["product_stats"]["当前向量库"] == products.vector_store.name
     assert metrics["counters"]["chat_requests"] >= 1
     assert "chat_latency_ms" in metrics["latencies"]
 
@@ -55,6 +57,7 @@ def test_admin_metrics_dashboard_renders_html() -> None:
     assert response.status_code == 200
     assert "ShopGuide 评测与可观测性 Dashboard" in response.text
     assert "商品总数" in response.text
+    assert "当前向量库" in response.text
     assert "retrieval cache hit rate" in response.text
 
 

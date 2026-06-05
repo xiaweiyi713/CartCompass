@@ -17,6 +17,8 @@ from app.models.schemas import (
     LLMConfigRequest,
     LLMTestRequest,
     MockPaymentRequest,
+    ProfilePreferenceDeleteRequest,
+    ProfilePreferenceTextRequest,
     UpdateCartRequest,
 )
 from app.observability import observability
@@ -43,6 +45,7 @@ def health() -> dict:
     return {
         "ok": True,
         "product_count": len(products.all()),
+        "vector_store": products.vector_store.status(),
         "llm_configured": agent.llm.is_configured,
         "llm": agent.llm.status().model_dump(),
         "text_embedding": {
@@ -87,7 +90,9 @@ async def test_llm(request: LLMTestRequest) -> dict:
 
 @router.get("/metrics")
 def metrics() -> dict:
-    return observability.snapshot(_product_stats())
+    payload = observability.snapshot(_product_stats())
+    payload["vector_store"] = products.vector_store.status()
+    return payload
 
 
 @router.get("/traces/{trace_id}")
@@ -107,6 +112,25 @@ def get_profile(session_id: str) -> dict:
 def clear_profile(session_id: str) -> dict:
     observability.increment("profile_clears")
     return profiles.clear(session_id).model_dump()
+
+
+@router.post("/profile/{user_id}/preferences")
+def add_profile_preference(user_id: str, request: ProfilePreferenceTextRequest) -> dict:
+    profile, updates = profiles.remember_preference_text(user_id, request.text)
+    observability.increment("profile_updates")
+    observability.add_current_step("profile", {"action": "manual_add", "updates": updates})
+    return profile.model_dump()
+
+
+@router.post("/profile/{user_id}/preferences/delete")
+def delete_profile_preference(user_id: str, request: ProfilePreferenceDeleteRequest) -> dict:
+    profile = profiles.remove_preference(user_id, request.kind, value=request.value, key=request.key)
+    observability.increment("profile_updates")
+    observability.add_current_step(
+        "profile",
+        {"action": "manual_delete", "kind": request.kind, "value": request.value, "key": request.key},
+    )
+    return profile.model_dump()
 
 
 @admin_router.get("/admin/metrics", response_class=HTMLResponse)
@@ -345,6 +369,7 @@ async def image_search(file: UploadFile = File(...), query: str = "") -> dict:
 
 def _product_stats() -> dict[str, str | int]:
     all_products = products.all()
+    vector_status = products.vector_store.status()
     total = len(all_products)
     source_count = sum(1 for product in all_products if product.source_url)
     review_count = sum(1 for product in all_products if product.review_count > 0)
@@ -360,6 +385,10 @@ def _product_stats() -> dict[str, str | int]:
         "有规格图商品占比": _ratio(sku_image_count, total),
         "有主图商品占比": _ratio(public_image_count, total),
         "评论总量": total_reviews,
+        "向量库配置": str(vector_status["configured_backend"]),
+        "当前向量库": str(vector_status["active_backend"]),
+        "向量类型": str(vector_status["vector_kind"]),
+        "Chroma 持久化": str(vector_status.get("chroma_path") or "未启用"),
     }
 
 

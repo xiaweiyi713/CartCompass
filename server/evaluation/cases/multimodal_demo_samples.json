@@ -1,0 +1,38 @@
+[
+  {
+    "id": "demo_image_phone",
+    "name": "手机图片找货",
+    "image": "server/static/product_images/p_digital_016.jpg",
+    "query": "拍照好一点的手机",
+    "expected_category": "数码电子",
+    "expected_sub_category_any": ["智能手机", "手机"],
+    "expected_topk_product_ids": ["p_digital_016"]
+  },
+  {
+    "id": "demo_image_charger",
+    "name": "Anker 充电设备图片找货",
+    "image": "server/static/product_images/p_anker_001_fc881685.jpg",
+    "query": "旅行快充充电设备",
+    "expected_category": "数码电子",
+    "expected_sub_category_any": ["充电设备", "充电器", "充电宝"],
+    "expected_topk_product_ids": ["p_anker_001_fc881685"]
+  },
+  {
+    "id": "demo_image_sunscreen",
+    "name": "防晒图片找货",
+    "image": "server/static/product_images/p_beauty_001.jpg",
+    "query": "油皮防晒",
+    "expected_category": "美妆护肤",
+    "expected_sub_category_any": ["防晒"],
+    "expected_topk_product_ids": ["p_beauty_001"]
+  },
+  {
+    "id": "demo_image_hiking_shoes",
+    "name": "防水徒步鞋图片找货",
+    "image": "server/static/product_images/p_clothes_014.jpg",
+    "query": "下雨通勤防滑鞋",
+    "expected_category": "服饰运动",
+    "expected_sub_category_any": ["徒步鞋", "运动鞋"],
+    "expected_topk_product_ids": ["p_clothes_014"]
+  }
+]

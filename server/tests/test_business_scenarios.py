@@ -226,6 +226,18 @@ def test_broad_destination_provides_assumption_before_products() -> None:
     assert {"背包", "充电设备", "防晒"} <= {product["sub_category"] for product in products}
 
 
+def test_specific_europe_city_is_not_treated_as_broad_japan_template() -> None:
+    answer, products = _chat("business-travel-berlin", "推荐一下下周去德国柏林度假要带的东西")
+
+    assert products
+    assert "柏林" in answer
+    assert "欧洲行程差异较大" not in answer
+    assert "北海道" not in answer
+    assert "冲绳" not in answer
+    assert "城市漫游" in answer
+    assert {"背包", "充电设备", "防晒"} <= {product["sub_category"] for product in products}
+
+
 def test_travel_bundle_uses_llm_need_slots_when_available() -> None:
     session_id = "business-llm-travel-plan"
     original = agent.llm.travel_need_plan

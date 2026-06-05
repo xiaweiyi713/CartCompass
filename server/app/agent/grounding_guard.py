@@ -53,6 +53,13 @@ class GroundingGuard:
         products: list[Product],
         constraints: SearchConstraints,
     ) -> str | None:
+        """Final acceptance gate for generated recommendation text.
+
+        The allowed fact set is intentionally narrow: current product cards,
+        their SKU prices, and user constraints such as budget. Any unsupported
+        price or risky promo/stock claim makes the whole generated answer invalid,
+        so the caller can fall back to deterministic local wording.
+        """
         if not text:
             observability.increment("grounding_guard_empty")
             return None
@@ -77,6 +84,9 @@ class GroundingGuard:
         products: list[Product],
         constraints: SearchConstraints,
     ) -> bool:
+        # Shared by both final validation and stream-segment validation. Keeping
+        # this pure and cheap lets the SSE path check chunks before they reach
+        # the client, while still rechecking the assembled answer at the end.
         if not text:
             return True
         normalized = text.strip()

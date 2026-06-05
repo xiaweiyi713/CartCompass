@@ -13,6 +13,8 @@ class SessionState:
     constraints: SearchConstraints = field(default_factory=SearchConstraints)
     pending_constraints: SearchConstraints | None = None
     pending_clarification: str | None = None
+    pending_checkout: dict | None = None
+    pending_lifestyle_intent: str | None = None
     last_product_ids: list[str] = field(default_factory=list)
     # Recent dialogue turns ({"role": "user"|"assistant", "content": str}), used
     # as context for the LLM conversation planner and for cross-turn references.

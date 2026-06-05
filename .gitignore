@@ -9,6 +9,7 @@ server/.env
 server/storage/*.sqlite3
 server/storage/*.sqlite3-shm
 server/storage/*.sqlite3-wal
+server/storage/chroma/
 # Keep the committed seed snapshot so a fresh checkout/container has the demo catalog.
 !server/storage/seed.sqlite3
 server/evaluation/output/

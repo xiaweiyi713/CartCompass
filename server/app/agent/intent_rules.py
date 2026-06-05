@@ -6,9 +6,38 @@ import re
 class IntentRules:
     def is_profile_remember(self, message: str) -> bool:
         compact = self.compact(message)
+        if self.is_implicit_profile_statement(message):
+            return True
         return any(term in compact for term in ["记住", "以后", "下次"]) and any(
             term in compact for term in ["不要", "预算", "油皮", "干皮", "敏感肌", "偏好", "喜欢", "排除", "避开"]
         )
+
+    def is_implicit_profile_statement(self, message: str) -> bool:
+        compact = self.compact(message)
+        stable_self_terms = ["我是", "我属于", "我皮肤", "我对", "我有", "我不能", "我不吃", "我不喝"]
+        profile_terms = [
+            "酒精过敏",
+            "香精过敏",
+            "水杨酸过敏",
+            "精油过敏",
+            "过敏",
+            "油皮",
+            "干皮",
+            "敏感肌",
+            "混油皮",
+            "混干皮",
+        ]
+        if not any(term in compact for term in profile_terms):
+            return False
+        return compact.startswith("我") or any(term in compact for term in stable_self_terms) or compact in {
+            "酒精过敏",
+            "香精过敏",
+            "油皮",
+            "干皮",
+            "敏感肌",
+            "混油皮",
+            "混干皮",
+        }
 
     def is_profile_view(self, message: str) -> bool:
         return self.compact(message) in {"查看我的偏好", "我的偏好", "看看我的偏好", "用户画像", "我的用户画像"}
@@ -18,14 +47,23 @@ class IntentRules:
 
     def is_weather(self, message: str) -> bool:
         compact = self.compact(message).lower()
-        return "天气" in compact and any(term in compact for term in ["今天", "明天", "现在", "怎么样", "如何", "适合出门", "适合户外"])
+        if "天气" not in compact:
+            return False
+        if any(term in compact for term in ["真好", "不错", "很好", "好舒服", "太好了", "好晴朗"]):
+            return False
+        explicit_query_terms = ["怎么样", "如何", "冷吗", "热吗", "下雨", "会下雨", "多少度", "几度", "适合出门", "适合户外"]
+        lookup_terms = ["查", "查一下", "看一下", "看看", "问一下", "问下"]
+        return any(term in compact for term in explicit_query_terms + lookup_terms)
 
     def weather_location(self, message: str) -> str | None:
         compact = self.compact(message)
         compact = compact.replace("今天天气怎么样", "").replace("明天天气怎么样", "")
         compact = compact.replace("今天天气如何", "").replace("明天天气如何", "")
         compact = compact.replace("现在天气怎么样", "").replace("天气怎么样", "").replace("天气如何", "")
-        compact = compact.replace("今天", "").replace("明天", "").replace("现在", "").strip()
+        compact = compact.replace("今天", "").replace("明天", "").replace("现在", "").replace("下周", "")
+        compact = compact.replace("天气", "")
+        compact = compact.strip("呢吗呀啊了的")
+        compact = compact.replace("怎么样", "").replace("如何", "").strip("呢吗呀啊了的")
         if not compact or compact in {"当地", "这里", "我这里"}:
             return None
         return compact
@@ -91,7 +129,26 @@ class IntentRules:
         if not last_product_ids:
             return False
         compact = self.compact(message)
-        return any(term in compact for term in ["太贵", "便宜点", "平替", "高端", "升级", "换品牌", "换个品牌", "别的品牌", "不喜欢", "喜欢这款", "喜欢这个"])
+        return any(
+            term in compact
+            for term in [
+                "太贵",
+                "便宜点",
+                "平替",
+                "高端",
+                "升级",
+                "换品牌",
+                "换个品牌",
+                "别的品牌",
+                "不喜欢",
+                "喜欢这款",
+                "喜欢这个",
+                "太商务",
+                "年轻一点",
+                "换个年轻",
+                "换个",
+            ]
+        )
 
     def is_more_results(self, message: str, last_product_ids: list[str]) -> bool:
         if not last_product_ids:
@@ -120,7 +177,7 @@ class IntentRules:
 
     def is_after_sale(self, message: str) -> bool:
         compact = self.compact(message)
-        return any(term in compact for term in ["售后", "退换", "退货", "换货", "保修", "质保", "运费险", "七天无理由", "能退吗", "能换吗"])
+        return any(term in compact for term in ["售后", "退换", "退货", "换货", "保修", "质保", "运费险", "七天无理由", "能退吗", "还能退吗", "退吗", "能换吗"])
 
     def feedback_type(self, message: str) -> str:
         compact = self.compact(message)
@@ -143,7 +200,7 @@ class IntentRules:
         if not last_product_ids:
             return False
         compact = self.compact(message).lower()
-        reference_terms = ["这款", "这个", "它", "第一款", "第一个", "第二款", "第二个", "第三款", "第三个", "上一款"]
+        reference_terms = ["这款", "这个", "这件", "它", "第一款", "第一个", "第二款", "第二个", "第三款", "第三个", "上一款"]
         qa_terms = [
             "为什么",
             "推荐理由",
@@ -162,6 +219,8 @@ class IntentRules:
             "颜色",
             "容量",
             "尺码",
+            "什么码",
+            "选码",
             "怎么选",
             "如何选",
             "区别",
@@ -174,12 +233,26 @@ class IntentRules:
             "搓泥",
             "酒精",
             "敏感肌",
+            "兼容",
+            "适配",
+            "能用",
+            "能不能用",
+            "能给",
+            "优惠",
+            "满减",
+            "优惠券",
+            "活动",
+            "多少钱",
+            "价格",
+            "售价",
         ]
         has_reference = any(term in compact for term in reference_terms) or re.search(
             r"(?:第[123一二三](?:款|个)?|[123](?:款|个))", compact
         ) is not None
         has_question = any(term in compact for term in qa_terms)
         short_followup = compact in {"为什么", "差评呢", "评论呢", "可靠吗", "怎么选", "有酒精吗"}
+        short_followup = short_followup or re.search(r"^(?:\d+\s*)?(?:g|gb|t|tb)?多少钱$", compact, re.I) is not None
+        short_followup = short_followup or re.search(r"^\d+\s*(?:g|gb|t|tb).*(?:多少钱|价格)$", compact, re.I) is not None
         return (has_reference and has_question) or short_followup
 
     def target_product_id(self, message: str, last_product_ids: list[str]) -> str | None:
@@ -192,8 +265,14 @@ class IntentRules:
         return last_product_ids[0]
 
     def quantity(self, message: str) -> int:
-        match = re.search(r"(\d+)\s*(?:件|个|份|瓶|双|台)?", message)
-        return max(1, int(match.group(1))) if match else 1
+        cleaned = re.sub(r"\d+\s*(?:gb|g|tb|t)", "", message, flags=re.I)
+        explicit_unit = re.search(r"(\d+)\s*(?:件|个|份|瓶|双|台)", cleaned)
+        if explicit_unit:
+            return max(1, int(explicit_unit.group(1)))
+        if any(term in cleaned for term in ["数量", "改成", "设为"]):
+            match = re.search(r"(\d+)", cleaned)
+            return max(1, int(match.group(1))) if match else 1
+        return 1
 
     def compact(self, message: str) -> str:
         return re.sub(r"[\s，。！？,.!?]", "", message)

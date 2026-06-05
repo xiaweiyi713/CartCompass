@@ -33,6 +33,37 @@ class UserProfileService:
         self._save()
         return self._profiles[user_id]
 
+    def remember_preference_text(self, user_id: str, text: str) -> tuple[UserProfile, list[str]]:
+        text = text.strip()
+        if not text:
+            return self.get(user_id), []
+        normalized = text if any(term in text for term in ["记住", "以后", "下次"]) else f"记住我以后{text}"
+        return self.remember_from_message(user_id, normalized)
+
+    def remove_preference(
+        self,
+        user_id: str,
+        kind: str,
+        value: str | None = None,
+        key: str | None = None,
+    ) -> UserProfile:
+        profile = self.get(user_id)
+        if kind == "budget_preferences":
+            if key:
+                profile.budget_preferences.pop(key, None)
+        elif kind == "preferred_features" and value:
+            profile.preferred_features = [item for item in profile.preferred_features if item != value]
+        elif kind == "excluded_brands" and value:
+            profile.excluded_brands = [item for item in profile.excluded_brands if item != value]
+        elif kind == "excluded_ingredients" and value:
+            profile.excluded_ingredients = [item for item in profile.excluded_ingredients if item != value]
+        elif kind == "skin_type":
+            profile.skin_type = None
+        elif kind == "travel_scenario" and value:
+            profile.travel_scenario = [item for item in profile.travel_scenario if item != value]
+        self._save()
+        return profile
+
     def remember_from_message(self, user_id: str, message: str) -> tuple[UserProfile, list[str]]:
         profile = self.get(user_id)
         updates: list[str] = []
@@ -48,12 +79,16 @@ class UserProfileService:
             updates.append(f"肤质：{skin_type}")
 
         for brand in self._excluded_brands(message):
-            if brand not in profile.excluded_brands:
+            if brand in profile.excluded_brands:
+                updates.append(f"排除品牌：{brand}")
+            else:
                 profile.excluded_brands.append(brand)
                 updates.append(f"排除品牌：{brand}")
 
         for ingredient in self._excluded_ingredients(message):
-            if ingredient not in profile.excluded_ingredients:
+            if ingredient in profile.excluded_ingredients:
+                updates.append(f"排除成分：{ingredient}")
+            else:
                 profile.excluded_ingredients.append(ingredient)
                 updates.append(f"排除成分：{ingredient}")
 
@@ -264,7 +299,7 @@ class UserProfileService:
 
     def _excluded_ingredients(self, message: str) -> list[str]:
         ingredients = ["酒精", "香精", "酸类", "水杨酸", "A醇", "精油"]
-        if not any(term in message for term in ["不要", "不含", "避开", "排除", "以后"]):
+        if not any(term in message for term in ["不要", "不含", "避开", "排除", "以后", "过敏", "敏感"]):
             return []
         return [ingredient for ingredient in ingredients if ingredient in message]
 

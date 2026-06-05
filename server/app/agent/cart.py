@@ -22,7 +22,9 @@ class CartService:
             sku = self._selected_sku(product, sku_id)
             session = self._items.setdefault(session_id, {})
             line_id = self._line_id(product.product_id, sku.sku_id if sku else None)
-            session[line_id] = max(1, session.get(line_id, 0) + quantity)
+            next_quantity = max(1, session.get(line_id, 0) + quantity)
+            self._ensure_available(product, next_quantity)
+            session[line_id] = next_quantity
             return self.state(session_id)
 
     def update(self, session_id: str, product_id: str, quantity: int, sku_id: str | None = None) -> CartState:
@@ -34,6 +36,7 @@ class CartService:
             if quantity <= 0:
                 session.pop(line_id, None)
             else:
+                self._ensure_available(product, quantity)
                 session[line_id] = quantity
             return self.state(session_id)
 
@@ -76,6 +79,7 @@ class CartService:
             state = self.state(session_id)
             if not state.items:
                 raise ValueError("购物车为空，无法下单")
+            self.ensure_state_available(state)
             order = OrderState(
                 order_id=f"SG{datetime.now().strftime('%Y%m%d')}{uuid4().hex[:8].upper()}",
                 session_id=session_id,
@@ -98,11 +102,28 @@ class CartService:
             self.clear(session_id)
             return order
 
+    def ensure_state_available(self, state: CartState) -> None:
+        """Re-check current catalog stock for a cart/checkout snapshot.
+
+        Cart items carry product snapshots for UI rendering, but checkout should
+        validate against the current product repository right before order
+        creation so stale cart snapshots cannot bypass stock constraints.
+        """
+        for item in state.items:
+            current = self._product_or_raise(item.product.product_id)
+            self._ensure_available(current, item.quantity)
+
     def _product_or_raise(self, product_id: str) -> Product:
         product = self.products.get(product_id)
         if not product:
             raise ValueError("Product not found")
         return product
+
+    def _ensure_available(self, product: Product, quantity: int) -> None:
+        if product.stock_status == "out_of_stock" or product.inventory_count <= 0:
+            raise ValueError(f"{product.title} 暂时无货，无法加入购物车或下单")
+        if quantity > product.inventory_count:
+            raise ValueError(f"{product.title} 库存仅剩 {product.inventory_count} 件，请调整数量")
 
     def _selected_sku(self, product: Product, sku_id: str | None) -> SKU | None:
         if sku_id:

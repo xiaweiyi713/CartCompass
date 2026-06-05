@@ -50,7 +50,8 @@ def run_evaluation(output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
 def _load_cases() -> list[dict[str, Any]]:
     cases: list[dict[str, Any]] = []
     for path in sorted(CASES_DIR.glob("*.json")):
-        cases.extend(json.loads(path.read_text(encoding="utf-8")))
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        cases.extend(case for case in loaded if isinstance(case, dict) and "type" in case)
     return cases
 
 

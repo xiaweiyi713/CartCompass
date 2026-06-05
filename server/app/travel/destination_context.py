@@ -50,6 +50,15 @@ DESTINATION_ATTRIBUTES: dict[str, tuple[str, ...]] = {
     "大阪": ("城市漫游", "境外", "美食", "长时间步行"),
     "京都": ("城市漫游", "境外", "长时间步行", "拍照"),
     "日本": ("城市漫游", "境外", "长时间步行", "拍照"),
+    "柏林": ("城市漫游", "境外", "长时间步行", "拍照", "多雨"),
+    "德国": ("城市漫游", "境外", "长时间步行", "拍照", "多雨"),
+    "巴黎": ("城市漫游", "境外", "长时间步行", "拍照"),
+    "法国": ("城市漫游", "境外", "长时间步行", "拍照"),
+    "罗马": ("城市漫游", "境外", "长时间步行", "拍照"),
+    "意大利": ("城市漫游", "境外", "长时间步行", "拍照"),
+    "伦敦": ("城市漫游", "境外", "长时间步行", "拍照", "多雨"),
+    "英国": ("城市漫游", "境外", "长时间步行", "拍照", "多雨"),
+    "瑞士": ("城市漫游", "境外", "长时间步行", "拍照", "山地"),
     "曼谷": ("热带", "高温", "潮湿", "城市漫游", "美食"),
     "新加坡": ("热带", "高温", "潮湿", "城市漫游", "境外"),
 }
@@ -74,7 +83,7 @@ class DestinationContextTool:
         )
         question = None
         if broad:
-            question = f"{destination}行程差异较大，我先按城市观光配一版；如果你去北海道、冲绳或滑雪/海岛场景，我会再调整。"
+            question = self._broad_destination_question(destination)
 
         return DestinationContext(
             destination=destination,
@@ -95,6 +104,14 @@ class DestinationContextTool:
             if destination.lower() in message.lower():
                 return destination
         return parsed_destination if parsed_destination and parsed_destination != "旅行" else "旅行"
+
+    def _broad_destination_question(self, destination: str) -> str:
+        examples = {
+            "日本": "北海道、冲绳或滑雪/海岛场景",
+            "欧洲": "巴黎、罗马、瑞士或滑雪/海岛场景",
+            "美国": "纽约、洛杉矶、夏威夷或国家公园场景",
+        }
+        return f"{destination}行程差异较大，我先按城市观光配一版；如果你去{examples.get(destination, '更具体的城市或特殊场景')}，我会再调整。"
 
     def _attributes_from_text(self, compact: str, scenario: str) -> list[str]:
         attrs: list[str] = []
@@ -198,4 +215,3 @@ class DestinationContextTool:
     def _budget(self, message: str) -> float | None:
         match = re.search(r"(\d+(?:\.\d+)?)\s*(?:元|块|预算)", message)
         return float(match.group(1)) if match else None
-

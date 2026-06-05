@@ -1,0 +1,127 @@
+[
+  {
+    "id": "chat_001",
+    "name": "纯闲聊不触发导购",
+    "turns": [{"query": "你好，你是谁？", "expect_mode": "general_chat", "expect_products": false, "must_contain_any": ["导购", "商品库"]}]
+  },
+  {
+    "id": "chat_002",
+    "name": "情绪闲聊不硬推商品",
+    "turns": [{"query": "今天上课好累啊，不想动。", "expect_mode": "general_chat", "expect_products": false, "must_contain_any": ["状态", "休息", "歇", "放松", "导购模式"]}]
+  },
+  {
+    "id": "chat_005",
+    "name": "弱意图转强购物",
+    "turns": [
+      {"query": "最近睡眠不好，有什么东西能改善吗？", "expect_products": false, "expect_mode_any": ["product_knowledge", "weak_purchase_intent", "general_chat"]},
+      {"query": "那你推荐个眼罩吧，别太贵。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1, "must_contain_any": ["眼罩", "睡眠", "相近"]}
+    ]
+  },
+  {
+    "id": "basic_001",
+    "name": "推荐手机先澄清",
+    "turns": [{"query": "推荐一款手机。", "expect_mode_any": ["weak_purchase_intent", "shopping_assist"], "expect_products": false, "expect_clarification": true, "must_contain_any": ["拍照", "续航", "游戏", "预算", "性价比"]}]
+  },
+  {
+    "id": "basic_002",
+    "name": "明确预算和用途后推荐手机",
+    "turns": [
+      {"query": "推荐一款手机。", "expect_products": false},
+      {"query": "预算 4000，拍照好一点，不要小米。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "max_price": 4000, "must_not_brand": ["小米"]}
+    ]
+  },
+  {
+    "id": "skin_002",
+    "name": "防晒不含酒精",
+    "turns": [{"query": "推荐防晒霜，但不要含酒精，也不要日系品牌。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "美妆护肤", "expected_sub_category": "防晒", "must_not_brand": ["安热沙", "资生堂", "理肤泉"], "must_not_contain": ["明确含酒精"]}]
+  },
+  {
+    "id": "skin_004",
+    "name": "用户长期偏好覆盖",
+    "turns": [
+      {"query": "记住我以后买护肤品不要含酒精。", "expect_products": false, "expect_profile": true, "must_contain_any": ["记住", "酒精"]},
+      {"query": "推荐一款防晒。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "美妆护肤", "expected_sub_category": "防晒", "must_not_contain": ["明确含酒精"]}
+    ]
+  },
+  {
+    "id": "digital_004",
+    "name": "差评追问",
+    "turns": [
+      {"query": "推荐一个 500 左右的降噪耳机。", "expect_products": true, "expected_min_products": 1, "expected_category": "数码电子"},
+      {"query": "第一款差评主要说什么？", "expect_mode_any": ["shopping_assist", "product_qa"], "expect_products": true, "must_contain_any": ["差评", "评论", "低分"]}
+    ]
+  },
+  {
+    "id": "fashion_001",
+    "name": "轻量跑鞋",
+    "turns": [{"query": "推荐一双 500 元以内的轻量跑鞋。", "expect_mode": "shopping_assist", "expect_products": false, "must_contain_any": ["没有找到", "放宽", "预算"]}]
+  },
+  {
+    "id": "alt_001",
+    "name": "太贵找平替",
+    "turns": [
+      {"query": "推荐一款耳机。", "expect_products": true, "expected_min_products": 1, "expected_category": "数码电子"},
+      {"query": "第一款太贵了，有没有平替？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1, "expect_cheaper_than_previous_first": true}
+    ]
+  },
+  {
+    "id": "alt_004",
+    "name": "无结果时约束放宽",
+    "turns": [{"query": "推荐 50 元以内、不含酒精、敏感肌可用、非日系的高倍防晒。", "expect_mode": "shopping_assist", "must_contain_any": ["放宽", "预算", "相近", "没有找到", "约束"]}]
+  },
+  {
+    "id": "travel_001",
+    "name": "三亚旅行预算套装",
+    "turns": [{"query": "我下周去三亚旅行，预算 1000，应该买什么？", "expect_mode": "shopping_assist", "expect_products": true, "expect_plan": true, "expected_min_products": 3, "must_contain_any": ["三亚", "防晒", "预算"]}]
+  },
+  {
+    "id": "travel_005",
+    "name": "宽泛目的地澄清或假设",
+    "turns": [{"query": "我要去日本旅行，应该买什么？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 3, "must_contain_any": ["日本", "东京", "大阪", "北海道", "冲绳", "先按"]}]
+  },
+  {
+    "id": "weather_002",
+    "name": "天气失败降级",
+    "test_setup": {"force_weather_provider_failure": true},
+    "turns": [{"query": "查一下三亚今天的天气。", "expect_mode": "weather_query", "expect_products": false, "expect_weather": false, "must_contain_any": ["实时天气", "暂时没有查到", "换成更具体", "核对"]}]
+  },
+  {
+    "id": "vision_002",
+    "name": "图文混合找货",
+    "turns": [{"type": "image", "path": "server/static/product_images/p_clothes_025.jpg", "query": "黑色通勤款", "expect_products": true, "expected_category": "服饰运动", "expected_sub_category": "背包", "expected_top_k": 2}]
+  },
+  {
+    "id": "cart_001",
+    "name": "第一款加入购物车",
+    "turns": [
+      {"query": "推荐一款降噪耳机。", "expect_products": true, "expected_min_products": 1},
+      {"query": "把第一款加入购物车。", "expect_mode": "transaction", "expect_cart_items_min": 1}
+    ]
+  },
+  {
+    "id": "cart_003",
+    "name": "SKU 独立行项目",
+    "turns": [
+      {"query": "推荐一款 iPhone。", "expect_products": true, "expected_min_products": 1},
+      {"query": "选择 256G 加入购物车。", "expect_mode": "transaction", "expect_cart_items_min": 1},
+      {"query": "再选择 512G 加入购物车。", "expect_mode": "transaction", "expect_distinct_sku_lines_min": 2}
+    ]
+  },
+  {
+    "id": "cart_006",
+    "name": "Mock 支付成功",
+    "test_setup": {"cart_has_items": true},
+    "turns": [{"type": "mock_payment", "outcome": "success", "expect_order_status": "paid"}]
+  },
+  {
+    "id": "model_003",
+    "name": "模型超时规则兜底",
+    "test_setup": {"provider": "disabled"},
+    "turns": [{"query": "推荐一款适合油皮的洗面奶。", "must_contain_any": ["没有找到", "放宽", "洗面奶", "油皮"], "must_not_contain": ["这次回复没有顺利完成"]}]
+  },
+  {
+    "id": "guard_001",
+    "name": "不能编不存在商品",
+    "turns": [{"query": "推荐一个你们库里没有但网上很火的商品。", "expect_mode_any": ["shopping_assist", "weak_purchase_intent", "general_chat"], "must_not_contain": ["不存在商品卡", "编造价格"], "assert_all_product_ids_exist": true}]
+  }
+]

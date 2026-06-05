@@ -58,6 +58,17 @@ def _stream_fallbacks(text: str) -> list[dict]:
     return fallbacks
 
 
+def _stream_event_payloads(text: str, event_name: str) -> list:
+    payloads: list = []
+    last_event = ""
+    for line in text.splitlines():
+        if line.startswith("event: "):
+            last_event = line.removeprefix("event: ")
+        elif last_event == event_name and line.startswith("data: "):
+            payloads.append(json.loads(line.removeprefix("data: ")))
+    return payloads
+
+
 def test_health_reports_products() -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
@@ -627,6 +638,15 @@ def test_products_expose_grounding_sources() -> None:
     assert product["evidence"]
 
 
+def test_products_expose_mock_stock_fields() -> None:
+    response = client.get("/api/products/p_digital_016")
+    assert response.status_code == 200
+    product = response.json()
+    assert product["stock_status"] in {"in_stock", "low_stock", "out_of_stock"}
+    assert isinstance(product["inventory_count"], int)
+    assert product["inventory_count"] >= 0
+
+
 def test_chat_stream_clarifies_broad_phone_request() -> None:
     response = client.post("/api/chat/stream", json={"session_id": "test-chat-clarify", "message": "推荐手机"})
     assert response.status_code == 200
@@ -708,6 +728,67 @@ def test_weather_query_without_location_asks_for_city() -> None:
     answer = _stream_tokens(response.text)
     assert "城市" in answer or "目的地" in answer
     assert "event: products" not in response.text
+
+
+def test_weather_positive_statement_stays_general_chat() -> None:
+    response = client.post("/api/chat/stream", json={"session_id": "test-weather-smalltalk", "message": "今天天气真好"})
+    assert response.status_code == 200
+    answer = _stream_tokens(response.text)
+    assert '"mode": "general_chat"' in response.text
+    assert "实时天气" not in answer
+    assert "没有查到" not in answer
+    assert "event: weather" not in response.text
+    assert "event: products" not in response.text
+
+
+def test_weather_location_followup_uses_previous_weather_context(monkeypatch) -> None:
+    async def fake_lookup(location: str, days: int = 7):
+        if "德国" in location:
+            return WeatherContext(
+                location=WeatherLocation(name="柏林", country="德国", latitude=52.52, longitude=13.405, timezone="Europe/Berlin"),
+                current=CurrentWeather(
+                    temperature_c=25,
+                    apparent_temperature_c=23,
+                    humidity=33,
+                    precipitation_mm=0,
+                    wind_speed_kmh=10,
+                    condition="多云",
+                ),
+                implications=WeatherImplications(tags=["紫外线强"], shopping_needs=["防晒霜"], travel_advice=[]),
+                source="TestWeather",
+                fetched_at="2026-06-02T12:19:00Z",
+            )
+        if "意大利" in location:
+            return WeatherContext(
+                location=WeatherLocation(name="罗马", country="意大利", latitude=41.9028, longitude=12.4964, timezone="Europe/Rome"),
+                current=CurrentWeather(
+                    temperature_c=28,
+                    apparent_temperature_c=29,
+                    humidity=45,
+                    precipitation_mm=0,
+                    wind_speed_kmh=8,
+                    condition="晴",
+                ),
+                implications=WeatherImplications(tags=["紫外线强"], shopping_needs=["防晒霜"], travel_advice=[]),
+                source="TestWeather",
+                fetched_at="2026-06-02T12:20:00Z",
+            )
+        return None
+
+    monkeypatch.setattr(agent.weather, "lookup", fake_lookup)
+
+    session_id = "test-weather-followup-italy"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "德国今天天气怎么样"})
+    second = client.post("/api/chat/stream", json={"session_id": session_id, "message": "意大利呢"})
+
+    first_answer = _stream_tokens(first.text)
+    second_answer = _stream_tokens(second.text)
+    assert "柏林当前天气" in first_answer
+    assert "罗马当前天气" in second_answer
+    assert "TestWeather" in second_answer
+    assert '"mode": "weather_query"' in second.text
+    assert "event: weather" in second.text
+    assert "event: products" not in second.text
 
 
 def test_weak_purchase_intent_clarifies_before_recommending() -> None:
@@ -839,6 +920,49 @@ def test_phone_budget_followup_text_cards_and_budget_are_consistent() -> None:
         stored = agent.products.get(product["product_id"])
         assert stored is not None
         assert agent._response_product_name(stored) in answer
+
+
+def test_premium_phone_budget_followups_rank_near_budget_tier() -> None:
+    session_id = "test-premium-phone-budget-tier"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐手机"})
+    assert "needs_clarification" in first.text
+
+    response_9000 = client.post("/api/chat/stream", json={"session_id": session_id, "message": "9000"})
+    assert response_9000.status_code == 200
+    products_9000 = _stream_products(response_9000.text)
+    assert products_9000
+    assert products_9000[0]["base_price"] == 8999
+    assert all(product["base_price"] <= 9000 for product in products_9000)
+
+    response_10000 = client.post("/api/chat/stream", json={"session_id": session_id, "message": "10000"})
+    assert response_10000.status_code == 200
+    products_10000 = _stream_products(response_10000.text)
+    assert products_10000
+    assert any(product["base_price"] == 9999 for product in products_10000[:3])
+    assert all(product["base_price"] <= 10000 for product in products_10000)
+
+
+def test_phone_budget_particle_followup_keeps_active_context() -> None:
+    session_id = "test-phone-budget-particle-followup"
+    first = client.post(
+        "/api/chat/stream",
+        json={"session_id": session_id, "message": "推荐5000左右的手机，拍照和续航都要好一点"},
+    )
+    assert first.status_code == 200
+    first_products = _stream_products(first.text)
+    assert len(first_products) >= 2
+    assert all(3250 <= product["base_price"] <= 6750 for product in first_products)
+
+    followup = client.post("/api/chat/stream", json={"session_id": session_id, "message": "8000呢"})
+    assert followup.status_code == 200
+    text = followup.text
+    products = _stream_products(text)
+    assert "event: products" in text
+    assert '"mode": "general_chat"' not in text
+    assert products
+    assert all(product["category"] == "数码电子" for product in products)
+    assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+    assert all(product["base_price"] <= 8000 for product in products)
 
 
 def test_chat_stream_does_not_clarify_specific_apple_phone_request() -> None:
@@ -1037,6 +1161,54 @@ def test_chat_stream_japan_what_to_buy_uses_travel_bundle_cards() -> None:
     assert not any(product["sub_category"] in {"笔记本电脑", "智能手机", "平板电脑"} for product in products)
 
 
+def test_chat_stream_campus_starter_request_returns_checklist_products() -> None:
+    response = client.post(
+        "/api/chat/stream",
+        json={"session_id": "test-campus-starter", "message": "上大学要买什么啊"},
+    )
+    assert response.status_code == 200
+    text = response.text
+    token_text = _stream_tokens(text)
+    products = _stream_products(text)
+    categories = {(product["category"], product["sub_category"]) for product in products}
+    assert "event: products" in text
+    assert '"mode": "shopping_assist"' in text
+    assert '"mode": "general_chat"' not in text
+    assert "入学" in token_text or "校园" in token_text
+    assert len(products) >= 3
+    assert ("服饰运动", "背包") in categories
+    assert ("数码电子", "充电设备") in categories
+    assert any(product["category"] == "食品饮料" for product in products)
+    assert not any(product["sub_category"] in {"智能手机", "平板电脑"} for product in products)
+
+
+def test_non_food_gift_request_resets_food_context() -> None:
+    session_id = "test-non-food-gift-context-reset"
+    first = client.post(
+        "/api/chat/stream",
+        json={"session_id": session_id, "message": "推荐适合送人的零食礼物"},
+    )
+    assert first.status_code == 200
+    assert "event: products" in first.text
+    assert any(product["category"] == "食品饮料" for product in _stream_products(first.text))
+
+    response = client.post(
+        "/api/chat/stream",
+        json={"session_id": session_id, "message": "我要送别人不是食物的礼物 有什么推荐"},
+    )
+    assert response.status_code == 200
+    text = response.text
+    token_text = _stream_tokens(text)
+    products = _stream_products(text)
+    assert "event: products" in text
+    assert '"mode": "shopping_assist"' in text
+    assert "非食品" in token_text or "不是食物" in token_text
+    assert "重置" in token_text or "不会沿用" in token_text
+    assert products
+    assert not any(product["category"] == "食品饮料" for product in products)
+    assert any(product["category"] in {"数码电子", "服饰运动", "美妆护肤"} for product in products)
+
+
 def test_chat_stream_builds_budget_shopping_plan() -> None:
     response = client.post(
         "/api/chat/stream",
@@ -1091,6 +1263,49 @@ def test_chat_stream_remembers_and_applies_user_profile() -> None:
     clear = client.delete(f"/api/profile/{session_id}")
     assert clear.status_code == 200
     assert clear.json()["excluded_ingredients"] == []
+
+
+def test_chat_stream_implicitly_remembers_allergy_profile() -> None:
+    session_id = "test-implicit-allergy-profile"
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "我酒精过敏"})
+    assert response.status_code == 200
+    answer = _stream_tokens(response.text)
+    assert "event: profile" in response.text
+    assert "长期偏好" in answer or "已经记住" in answer
+    assert "酒精" in answer
+
+    profile = client.get(f"/api/profile/{session_id}")
+    assert profile.status_code == 200
+    assert "酒精" in profile.json()["excluded_ingredients"]
+
+
+def test_profile_manual_edit_applies_to_chat_profile_user_id() -> None:
+    user_id = "test-manual-profile-user"
+    session_id = "test-manual-profile-chat-session"
+
+    added = client.post(f"/api/profile/{user_id}/preferences", json={"text": "酒精过敏"})
+    assert added.status_code == 200
+    assert "酒精" in added.json()["excluded_ingredients"]
+
+    response = client.post(
+        "/api/chat/stream",
+        json={
+            "session_id": session_id,
+            "profile_user_id": user_id,
+            "message": "推荐适合油皮的防晒，200元以内",
+        },
+    )
+    assert response.status_code == 200
+    text = response.text.replace("不含酒精", "")
+    assert "event: products" in response.text
+    assert "含酒精" not in text
+
+    removed = client.post(
+        f"/api/profile/{user_id}/preferences/delete",
+        json={"kind": "excluded_ingredients", "value": "酒精"},
+    )
+    assert removed.status_code == 200
+    assert "酒精" not in removed.json()["excluded_ingredients"]
 
 
 def test_chat_stream_sunscreen_request_resets_phone_context() -> None:
@@ -1392,6 +1607,19 @@ def test_chat_stream_answers_source_followup() -> None:
     assert "event: products" in text
 
 
+def test_product_chunks_are_materialized_for_grounded_qa() -> None:
+    chunks = agent.products.get_chunks("p_anker_003_a24c9a01")
+    assert chunks
+    assert {chunk["chunk_type"] for chunk in chunks} & {"identity", "detail", "faq", "review"}
+
+    session_id = "test-product-chunk-qa"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐 Anker 100W 快充"})
+    assert "p_anker_003_a24c9a01" in first.text
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "第一款快充证据是什么"})
+    answer = _stream_tokens(response.text)
+    assert "片段" in answer or "证据" in answer
+
+
 def test_chat_stream_resets_context_when_category_changes() -> None:
     session_id = "test-topic-switch"
     first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐一款保湿提亮的护肤品"})
@@ -1455,6 +1683,68 @@ def test_cart_crud_and_checkout() -> None:
     state_response = client.get(f"/api/cart/{session_id}")
     assert state_response.status_code == 200
     assert state_response.json()["items"] == []
+
+
+def test_agent_guided_checkout_confirms_address_and_completes_order() -> None:
+    session_id = "test-agent-guided-checkout"
+    add_response = client.post(
+        "/api/cart/add",
+        json={"session_id": session_id, "product_id": "p_digital_016", "quantity": 1},
+    )
+    assert add_response.status_code == 200
+
+    start = client.post("/api/chat/stream", json={"session_id": session_id, "message": "我要下单"})
+    assert start.status_code == 200
+    start_text = _stream_tokens(start.text)
+    assert "收货地址" in start_text
+    assert "订单汇总" in start_text
+    assert "合计" in start_text
+    assert client.get(f"/api/cart/{session_id}").json()["items"]
+
+    address = client.post(
+        "/api/chat/stream",
+        json={"session_id": session_id, "message": "北京市朝阳区 Demo 路 1 号"},
+    )
+    assert address.status_code == 200
+    address_text = _stream_tokens(address.text)
+    assert "收货地址已更新" in address_text
+    assert "确认下单" in address_text
+    assert "订单汇总" in address_text
+    assert client.get(f"/api/cart/{session_id}").json()["items"]
+
+    confirm = client.post("/api/chat/stream", json={"session_id": session_id, "message": "确认下单"})
+    assert confirm.status_code == 200
+    confirm_text = _stream_tokens(confirm.text)
+    order_events = _stream_event_payloads(confirm.text, "order")
+    assert "模拟下单已完成" in confirm_text
+    assert "订单号：SG" in confirm_text
+    assert "北京市朝阳区 Demo 路 1 号" in confirm_text
+    assert order_events and order_events[0]["order_id"].startswith("SG")
+    assert order_events[0]["address"] == "北京市朝阳区 Demo 路 1 号"
+    assert client.get(f"/api/cart/{session_id}").json()["items"] == []
+
+
+def test_agent_guided_checkout_can_cancel_without_clearing_cart() -> None:
+    session_id = "test-agent-guided-checkout-cancel"
+    client.post("/api/cart/add", json={"session_id": session_id, "product_id": "p_digital_016", "quantity": 1})
+
+    start = client.post("/api/chat/stream", json={"session_id": session_id, "message": "结算"})
+    assert "收货地址" in _stream_tokens(start.text)
+
+    cancel = client.post("/api/chat/stream", json={"session_id": session_id, "message": "取消下单"})
+    cancel_text = _stream_tokens(cancel.text)
+    assert "已取消" in cancel_text
+    assert client.get(f"/api/cart/{session_id}").json()["items"]
+
+
+def test_cart_rejects_quantity_above_mock_inventory() -> None:
+    session_id = "test-cart-stock-guard"
+    response = client.post(
+        "/api/cart/add",
+        json={"session_id": session_id, "product_id": "p_digital_016", "quantity": 999},
+    )
+    assert response.status_code == 404
+    assert "库存" in response.json()["detail"]
 
 
 def test_empty_checkout_is_rejected() -> None:

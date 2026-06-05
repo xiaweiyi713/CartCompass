@@ -54,6 +54,7 @@ class CheckoutService:
             cart_state = self.cart.state(session_id)
             if not cart_state.items:
                 raise ValueError("购物车为空，无法创建结算会话")
+            self.cart.ensure_state_available(cart_state)
             checkout_session_id = f"cs_demo_{uuid4().hex[:12]}"
             now = datetime.now(timezone.utc)
             session = CheckoutSession(
@@ -106,6 +107,7 @@ class CheckoutService:
                 observability.increment(f"mock_payment_{outcome}")
                 return session
 
+            self.cart.ensure_state_available(session.cart_snapshot)
             order = self._build_order(session)
             session.status = "PAID"
             session.order_id = order.order_id
@@ -234,6 +236,7 @@ class CheckoutService:
         review = [
             f"购物车共 {item_count} 件商品，总价 ¥{cart_state.total_price:.0f}。",
             "所有商品、SKU 和价格来自当前本地商品库快照。",
+            "创建结算会话和模拟支付成功前都会复核当前库存。",
         ]
         sourced = sum(1 for item in cart_state.items if item.product.source_url)
         if sourced:

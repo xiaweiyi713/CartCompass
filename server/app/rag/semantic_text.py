@@ -79,7 +79,7 @@ class TextEmbeddingClient:
 
     def _post(self, body: dict, disable_on_client_error: bool) -> dict | None:
         try:
-            with httpx.Client(timeout=self.config.timeout_seconds) as client:
+            with httpx.Client(timeout=self.config.timeout_seconds, trust_env=False) as client:
                 response = client.post(
                     self._embedding_endpoint(),
                     headers={

@@ -7,8 +7,8 @@ from app.rag.product_repository import SearchConstraints
 
 CATEGORY_KEYWORDS = {
     "美妆护肤": ["护肤", "美妆", "面霜", "精华", "防晒", "防晒乳", "洗面奶", "眼霜", "卸妆", "粉底", "蜜粉", "彩妆", "油皮"],
-    "数码电子": ["手机", "耳机", "平板", "电脑", "笔记本", "数码", "拍照", "续航", "蓝牙", "充电器", "充电宝", "快充"],
-    "服饰运动": ["衣服", "服饰", "跑鞋", "篮球鞋", "外套", "t恤", "穿搭", "背包", "运动", "运动裤", "速干", "户外", "防晒衣", "瑜伽裤", "短裤", "三亚", "海边", "度假", "旅行"],
+    "数码电子": ["手机", "iphone", "苹果", "apple", "耳机", "平板", "电脑", "笔记本", "数码", "拍照", "续航", "蓝牙", "充电器", "充电宝", "充电方案", "没电", "补电", "快充"],
+    "服饰运动": ["衣服", "服饰", "鞋", "通勤鞋", "防水鞋", "徒步鞋", "登山鞋", "跑鞋", "篮球鞋", "外套", "t恤", "穿搭", "背包", "双肩包", "通勤包", "电脑包", "运动", "运动裤", "速干", "户外", "防晒衣", "瑜伽裤", "短裤", "三亚", "海边", "度假", "旅行"],
     "食品饮料": ["食品", "饮料", "咖啡", "冷萃", "拿铁", "咖啡豆", "零食", "方便面", "能量", "气泡水", "坚果"],
 }
 
@@ -25,18 +25,25 @@ SUBCATEGORY_KEYWORDS = [
     "耳机",
     "充电宝",
     "充电器",
+    "充电设备",
     "平板电脑",
     "平板",
     "笔记本电脑",
     "笔记本",
     "运动裤",
     "运动服饰",
+    "徒步鞋",
+    "登山鞋",
+    "防水鞋",
+    "通勤鞋",
     "运动鞋",
     "跑步鞋",
     "跑鞋",
     "篮球鞋",
     "短袖T恤",
     "外套",
+    "双肩包",
+    "背包",
     "冷萃",
     "拿铁",
     "咖啡",
@@ -77,6 +84,8 @@ class ConstraintParser:
 
     def _category(self, message: str) -> str | None:
         lower = message.lower()
+        if any(term in lower for term in ["背包", "双肩包", "通勤包", "电脑包"]):
+            return "服饰运动"
         scored = [
             (sum(1 for keyword in keywords if keyword in lower), category)
             for category, keywords in CATEGORY_KEYWORDS.items()
@@ -89,17 +98,27 @@ class ConstraintParser:
     def _sub_category(self, message: str, category: str | None) -> str | None:
         lower = message.lower()
         if category == "服饰运动":
+            if any(term in lower for term in ["背包", "双肩包", "通勤包", "电脑包"]):
+                return "背包"
+            if any(term in lower for term in ["徒步鞋", "登山鞋", "防水鞋"]) or (
+                "鞋" in lower and any(term in lower for term in ["下雨", "雨天", "防水", "防滑"])
+            ):
+                return "徒步鞋"
             if any(term in lower for term in ["运动裤", "速干", "户外", "瑜伽裤", "短裤", "防晒衣"]):
                 return "运动服饰"
-            if any(term in lower for term in ["跑鞋", "运动鞋", "篮球鞋", "鞋"]):
+            if any(term in lower for term in ["跑鞋", "运动鞋", "篮球鞋", "通勤鞋", "鞋"]):
                 return "运动鞋"
         if category == "食品饮料" and any(term in lower for term in ["咖啡", "冷萃", "拿铁", "咖啡豆"]):
             return "咖啡"
         if category == "数码电子":
-            if "充电宝" in lower:
-                return "充电宝"
+            if any(term in lower for term in ["iphone", "苹果手机", "手机"]):
+                if any(term in lower for term in ["没电", "充电方案", "补电"]) and not any(term in lower for term in ["推荐手机", "买手机", "手机，", "手机。"]):
+                    return "充电设备"
+                return "手机"
+            if any(term in lower for term in ["充电宝", "没电", "充电方案", "补电"]):
+                return "充电设备"
             if "充电器" in lower or "快充" in lower:
-                return "充电器"
+                return "充电设备"
         for keyword in SUBCATEGORY_KEYWORDS:
             if keyword.lower() in lower:
                 return keyword
@@ -109,6 +128,7 @@ class ConstraintParser:
         approx = self._approx_price(message)
         if approx is not None:
             return approx * 1.35
+        trimmed = message.strip().strip("呢吗呀啊吧了")
         patterns = [
             r"(\d+(?:\.\d+)?)\s*(?:元|块|rmb)?\s*(?:以内|以下|内|之内)",
             r"预算\s*(\d+(?:\.\d+)?)",
@@ -119,8 +139,8 @@ class ConstraintParser:
             match = re.search(pattern, message, re.I)
             if match:
                 return float(match.group(1))
-        if re.fullmatch(r"\s*\d{3,6}(?:\.\d+)?\s*", message):
-            return float(message.strip())
+        if re.fullmatch(r"\s*\d{3,6}(?:\.\d+)?\s*", trimmed):
+            return float(trimmed)
         return None
 
     def _min_price(self, message: str) -> float | None:
@@ -213,6 +233,10 @@ class ConstraintParser:
             normalized += " iPhone 17 Pro Max 苹果手机"
         elif re.search(r"(?<!\d)17\s*pro(?!\s*max)", message, re.I):
             normalized += " iPhone 17 Pro 苹果手机"
+        if "耳机" in lower and any(term in lower for term in ["地铁", "安静", "吵", "通勤"]):
+            normalized += " 通勤 降噪"
+        if any(term in lower for term in ["手机没电", "出门手机没电", "充电方案", "轻便充电", "补电"]):
+            normalized += " 充电宝 轻量 快充"
         return normalized
 
     def _include_terms(self, message: str, excluded: list[str]) -> list[str]:
@@ -224,6 +248,8 @@ class ConstraintParser:
             "轻量",
             "快充",
             "充电宝",
+            "通勤",
+            "降噪",
             "iPhone",
             "Pro Max",
             "拍照",

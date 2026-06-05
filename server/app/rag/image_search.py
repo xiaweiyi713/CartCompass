@@ -126,6 +126,7 @@ class ImageSearchService:
             scored.append((fused_score, product))
 
         scored.sort(key=lambda item: item[0], reverse=True)
+        scored = self._promote_query_subcategory(scored, query, understanding)
         results = [product for _, product in scored[:limit]]
         elapsed_ms = (time.perf_counter() - started_at) * 1000
         observability.increment("image_search_requests")
@@ -296,6 +297,28 @@ class ImageSearchService:
             score += 0.28 * matches / max(len(terms), 1)
         confidence = max(0.35, understanding.confidence)
         return max(0.0, min(1.0, score * confidence))
+
+    def _promote_query_subcategory(
+        self,
+        scored: list[tuple[float, Product]],
+        query: str,
+        understanding: ImageUnderstandingResult,
+    ) -> list[tuple[float, Product]]:
+        target = (understanding.sub_category if understanding.available else None) or self._query_subcategory_hint(query)
+        if not target:
+            return scored
+        target_lower = target.lower()
+        matching = [item for item in scored if target_lower in item[1].sub_category.lower()]
+        if len(matching) < 2:
+            return scored
+        other = [item for item in scored if item not in matching]
+        return matching + other
+
+    def _query_subcategory_hint(self, query: str) -> str | None:
+        compact = query.strip().lower()
+        if any(term in compact for term in ["背包", "双肩包", "通勤包", "电脑包", "通勤款"]):
+            return "背包"
+        return None
 
     def _product_text(self, product: Product) -> str:
         return " ".join(

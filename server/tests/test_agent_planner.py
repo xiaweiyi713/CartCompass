@@ -72,6 +72,37 @@ def test_high_confidence_route_explicit_vs_vague():
     assert agent._high_confidence_route("最近压力有点大随便聊聊", rule("最近压力有点大随便聊聊"), session) is False
 
 
+def test_lifestyle_parser_understands_charging_and_subway_earphone_needs():
+    charging = agent.parser.parse("我经常出门手机没电，想买个轻便充电方案。")
+    assert charging.category == "数码电子"
+    assert charging.sub_category == "充电设备"
+    assert "充电宝" in charging.include_terms
+
+    earphone = agent.parser.parse("有没有那种戴地铁上能安静点的耳机？")
+    assert earphone.category == "数码电子"
+    assert earphone.sub_category == "耳机"
+    assert "通勤" in earphone.include_terms
+    assert "降噪" in earphone.include_terms
+
+
+def test_lifestyle_router_handles_implicit_buy_and_blocks_medical_cure_claims():
+    implicit = agent.mode_router.route(
+        "有没有那种戴地铁上能安静点的耳机？",
+        has_last_products=False,
+        has_pending_clarification=False,
+        has_active_shopping_context=False,
+    )
+    assert implicit.mode == "shopping_assist"
+
+    medical = agent.mode_router.route(
+        "推荐一个能治失眠的产品。",
+        has_last_products=False,
+        has_pending_clarification=False,
+        has_active_shopping_context=False,
+    )
+    assert medical.mode == "product_knowledge"
+
+
 # ---- Agent-path tests with a mocked planner (no network) --------------------------
 
 def test_planner_smalltalk_does_not_hard_sell():
@@ -103,3 +134,37 @@ def test_explicit_recommend_streams_prefix_and_products():
     tokens = _tokens(events)
     assert tokens.startswith("以下信息来自本地商品库")
     assert len(_products(events)) >= 1
+
+
+def test_medical_cure_request_does_not_emit_product_cards():
+    response = client.post("/api/chat/stream", json={"session_id": "medical-cure-guard", "message": "推荐一个能治失眠的产品。"})
+    events = _events(response.text)
+    tokens = _tokens(events)
+    assert "医疗" in tokens
+    assert "医生" in tokens
+    assert _products(events) == []
+    done = [e["data"] for e in events if e["event"] == "done"][-1]
+    assert done.get("mode") == "product_knowledge"
+
+
+def test_sleep_environment_followup_switches_to_non_medical_shopping():
+    session_id = "sleep-environment-followup"
+    medicine = client.post("/api/chat/stream", json={"session_id": session_id, "message": "有没有什么治疗失眠的药"})
+    medicine_events = _events(medicine.text)
+    assert _products(medicine_events) == []
+    assert "医疗" in _tokens(medicine_events)
+
+    environment = client.post("/api/chat/stream", json={"session_id": session_id, "message": "我想改善睡眠环境"})
+    environment_events = _events(environment.text)
+    environment_done = [e["data"] for e in environment_events if e["event"] == "done"][-1]
+    assert environment_done.get("mode") == "shopping_assist"
+    assert _products(environment_events)
+    environment_text = _tokens(environment_events)
+    assert "非医疗" in environment_text
+    assert "治疗失眠" in environment_text
+
+    bedroom = client.post("/api/chat/stream", json={"session_id": session_id, "message": "卧室环境"})
+    bedroom_events = _events(bedroom.text)
+    bedroom_done = [e["data"] for e in bedroom_events if e["event"] == "done"][-1]
+    assert bedroom_done.get("mode") == "shopping_assist"
+    assert _products(bedroom_events)

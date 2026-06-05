@@ -40,6 +40,10 @@ STORAGE_DIR = DB_PATH.parent
 STATIC_DIR = Path(os.getenv("SHOPGUIDE_STATIC_DIR", SERVER_DIR / "static"))
 PRODUCT_IMAGE_DIR = STATIC_DIR / "product_images"
 
+VECTOR_STORE_BACKEND = os.getenv("VECTOR_STORE_BACKEND", "sqlite").strip().lower()
+CHROMA_PATH = Path(os.getenv("CHROMA_PATH", SERVER_DIR / "storage" / "chroma"))
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "shopguide_products")
+
 # CORS allowlist. Default "*" keeps local demos and the native iOS client
 # friction-free; set a comma-separated whitelist (e.g.
 # "https://app.example.com,https://admin.example.com") to lock it down for

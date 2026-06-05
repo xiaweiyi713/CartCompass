@@ -1,0 +1,4 @@
+# Optional vector database backend.
+# Core demo/tests do not require this file; install it when you want
+# VECTOR_STORE_BACKEND=chroma to use a local persistent Chroma collection.
+chromadb==0.5.23

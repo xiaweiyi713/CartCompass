@@ -8,12 +8,13 @@ import time
 from dataclasses import dataclass, field
 
 from app.config import PRODUCT_IMAGE_DIR
-from app.db.database import connect
+from app.db.database import connect, init_schema
 from app.models.schemas import Product, SKU
 from app.observability import observability
 from app.rag.retrieval_cache import RetrievalCache
 from app.rag.semantic_text import TextEmbeddingStore, cosine_similarity
 from app.rag.text_vectorizer import BM25Scorer, HashingVectorizer
+from app.rag.vector_store import build_vector_store
 
 
 @dataclass
@@ -31,7 +32,9 @@ class SearchConstraints:
 class ProductRepository:
     def __init__(self, conn: sqlite3.Connection | None = None) -> None:
         self.conn = conn or connect()
+        init_schema(self.conn)
         self.vectorizer = HashingVectorizer()
+        self.vector_store = build_vector_store(self.conn)
         self.semantic_store = TextEmbeddingStore(self.conn)
         self.retrieval_cache = RetrievalCache()
         self._lock = threading.RLock()
@@ -53,6 +56,19 @@ class ProductRepository:
             return {}
         payload = json.loads(row["rag_json"])
         return payload if isinstance(payload, dict) else {}
+
+    def get_chunks(self, product_id: str) -> list[dict]:
+        with self._lock:
+            rows = self.conn.execute(
+                """
+                SELECT chunk_id, product_id, chunk_type, ordinal, chunk_text
+                FROM product_chunks
+                WHERE product_id=?
+                ORDER BY ordinal
+                """,
+                (product_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def search(self, query: str, constraints: SearchConstraints, limit: int = 5) -> list[Product]:
         # Embed the query OUTSIDE the lock: this is a network call when a text
@@ -105,24 +121,55 @@ class ProductRepository:
             if not self._matches_constraints(row, constraints):
                 continue
             candidate_rows.append(row)
+        # Retrieval is deliberately hybrid and explainable:
+        # 1. SQL already removed impossible rows by hard facts (category, price,
+        #    excluded IDs), so later vector steps cannot reintroduce filtered-out
+        #    products.
+        # 2. BM25 keeps exact shopping terms strong ("Anker", "不含酒精").
+        # 3. The pluggable vector store adds semantic recall (Chroma/text
+        #    embedding when configured, local hashing otherwise).
+        # 4. The final score adds structured boosts and trust signals before any
+        #    product card is sent back to the app.
         bm25 = BM25Scorer([(row["product_id"], row["search_text"]) for row in candidate_rows])
         bm25_scores = bm25.normalized_scores(query, [row["product_id"] for row in candidate_rows])
         vector_scores: dict[str, float] = {}
         semantic_vector_hits = 0
         structured_scores: dict[str, float] = {}
         scored: list[tuple[float, sqlite3.Row, dict[str, float | str]]] = []
+        store_query_vector = (
+            semantic_query_vector
+            if self.vector_store.vector_kind == "text_embedding" and semantic_query_vector is not None
+            else query_vector
+        )
+        store_scores = self.vector_store.score(store_query_vector, candidate_rows, top_k=max(limit * 8, 50))
         for row in candidate_rows:
             vector = json.loads(row["vector_json"])
             hashing_vector_score = self.vectorizer.similarity(query_vector, vector)
-            semantic_vector = (
-                self.semantic_store.vector_for_product(row["product_id"], row["search_text"])
-                if semantic_query_vector is not None
-                else None
-            )
-            if semantic_query_vector is not None and semantic_vector is not None:
+            semantic_vector = None
+            if semantic_query_vector is not None and self.vector_store.vector_kind == "text_embedding":
+                store_score = store_scores.get(row["product_id"])
+                if store_score is not None:
+                    vector_score = store_score
+                    semantic_vector_hits += 1
+                    vector_backend = "chroma_text_embedding"
+                else:
+                    semantic_vector = self.semantic_store.vector_for_product(row["product_id"], row["search_text"])
+                    if semantic_vector is not None:
+                        vector_score = cosine_similarity(semantic_query_vector, semantic_vector)
+                        semantic_vector_hits += 1
+                        vector_backend = "text_embedding"
+                    else:
+                        vector_score = hashing_vector_score
+                        vector_backend = "hashing_vector"
+            elif semantic_query_vector is not None and (
+                semantic_vector := self.semantic_store.vector_for_product(row["product_id"], row["search_text"])
+            ) is not None:
                 vector_score = cosine_similarity(semantic_query_vector, semantic_vector)
                 semantic_vector_hits += 1
                 vector_backend = "text_embedding"
+            elif self.vector_store.vector_kind == "hashing" and self.vector_store.name.startswith("chroma"):
+                vector_score = store_scores.get(row["product_id"], hashing_vector_score)
+                vector_backend = "chroma"
             else:
                 vector_score = hashing_vector_score
                 vector_backend = "hashing_vector"
@@ -135,6 +182,7 @@ class ProductRepository:
                 "hashing_vector": hashing_vector_score,
                 "structured": structured_score,
                 "trust": self._trust_score(row),
+                "budget_fit": self._budget_fit_boost(row, query, constraints),
                 "vector_backend": vector_backend,
             }
             score = self._hybrid_score(score_parts)
@@ -274,7 +322,7 @@ class ProductRepository:
             return False
         if c.min_price is not None and row["base_price"] < c.min_price:
             return False
-        if any(term.lower() not in text for term in c.include_terms):
+        if any(not self._matches_include_term(text, term) for term in c.include_terms):
             return False
         if any(self._contains_excluded(text, term.lower()) for term in c.exclude_terms):
             return False
@@ -328,12 +376,44 @@ class ProductRepository:
             return any(alias in row_sub or alias in title for alias in aliases)
         return normalized in row_sub or normalized in title or normalized in text
 
+    def _matches_include_term(self, text: str, term: str) -> bool:
+        normalized = term.lower().strip()
+        if not normalized:
+            return True
+        # Preference words are ranking hints, not hard filters. Treating them as
+        # mandatory can hide valid catalog items whose descriptions use different wording.
+        soft_terms = {
+            "性价比",
+            "便宜",
+            "高端",
+            "升级",
+            "轻",
+            "轻量",
+            "轻便",
+            "别太重",
+            "通勤",
+            "降噪",
+            "拍照",
+            "影像",
+            "续航",
+            "游戏",
+            "性能",
+        }
+        if normalized in soft_terms:
+            return True
+        aliases = {
+            "充电宝": ["充电宝", "移动电源", "power bank", "powercore"],
+            "移动电源": ["充电宝", "移动电源", "power bank", "powercore"],
+        }.get(normalized, [normalized])
+        return any(alias.lower() in text for alias in aliases)
+
     def _hybrid_score(self, parts: dict[str, float | str]) -> float:
         return (
             float(parts["bm25"]) * 0.32
             + float(parts["vector"]) * 0.34
             + float(parts["structured"]) * 0.22
             + float(parts["trust"]) * 0.12
+            + float(parts.get("budget_fit", 0.0))
         )
 
     def _trust_score(self, row: sqlite3.Row) -> float:
@@ -350,22 +430,36 @@ class ProductRepository:
         return min(1.0, score)
 
     def _hybrid_reason(self, parts: dict[str, float | str]) -> str:
-        vector_label = "语义向量" if parts.get("vector_backend") == "text_embedding" else "本地向量"
+        if parts.get("vector_backend") == "chroma_text_embedding":
+            vector_label = "Chroma语义向量"
+        elif parts.get("vector_backend") == "text_embedding":
+            vector_label = "语义向量"
+        elif parts.get("vector_backend") == "chroma":
+            vector_label = "Chroma向量库"
+        else:
+            vector_label = "本地向量"
         return (
             "混合检索："
             f"BM25 {float(parts['bm25']) * 100:.0f} / "
             f"{vector_label} {max(0, float(parts['vector'])) * 100:.0f} / "
             f"结构化 {float(parts['structured']) * 100:.0f} / "
+            f"预算贴合 {float(parts.get('budget_fit', 0.0)) * 100:.0f} / "
             f"可信度 {float(parts['trust']) * 100:.0f}"
         )
 
     def _retrieval_stack(self, semantic_vector_hits: int, candidate_count: int) -> str:
         if semantic_vector_hits and semantic_vector_hits == candidate_count:
             provider, model = self.semantic_store.identity
+            if self.vector_store.vector_kind == "text_embedding":
+                return f"structured_filter + BM25 + Chroma text_embedding({provider}/{model}) + trust_reranker"
             return f"structured_filter + BM25 + text_embedding({provider}/{model}) + trust_reranker"
         if semantic_vector_hits:
             provider, model = self.semantic_store.identity
+            if self.vector_store.vector_kind == "text_embedding":
+                return f"structured_filter + BM25 + hybrid_Chroma_text_embedding({provider}/{model}) + hashing_fallback + trust_reranker"
             return f"structured_filter + BM25 + hybrid_text_embedding({provider}/{model}) + hashing_fallback + trust_reranker"
+        if self.vector_store.name.startswith("chroma"):
+            return "structured_filter + BM25 + Chroma vector DB + hashing_fallback + trust_reranker"
         return "structured_filter + BM25 + hashing_vector + trust_reranker"
 
     def _retrieval_identity(self) -> dict:
@@ -376,6 +470,7 @@ class ProductRepository:
             "semantic_configured": semantic_configured,
             "semantic_provider": provider if semantic_configured else None,
             "semantic_model": model if semantic_configured else None,
+            "vector_store": self.vector_store.name,
         }
 
     def _contains_excluded(self, text: str, term: str) -> bool:
@@ -406,6 +501,46 @@ class ProductRepository:
         if row["brand"] and row["brand"] in query:
             score += 0.2
         return score
+
+    def _budget_fit_boost(self, row: sqlite3.Row, query: str, c: SearchConstraints) -> float:
+        if c.max_price is None:
+            return 0.0
+        price = float(row["base_price"])
+        max_price = float(c.max_price)
+        if max_price <= 0 or price > max_price:
+            return 0.0
+
+        compact = re.sub(r"[\s，。！？,.!?]", "", query.lower())
+        value_text = re.sub(r"\d+(?:\.\d+)?", "", compact)
+        budget_only = not re.sub(r"(预算|价位|以内|以下|内|之内|元|块|rmb|的|左右|上下|附近|档)", "", value_text)
+        cheap_intent = any(term in compact for term in ("便宜", "低价", "平替", "省钱", "性价比"))
+
+        if cheap_intent:
+            ratio = min(1.0, price / max_price)
+            return max(0.0, (1.0 - ratio) * 0.35)
+
+        if c.min_price is not None and c.min_price < max_price:
+            target = (float(c.min_price) + max_price) / 2
+            fit = 1.0 - min(1.0, abs(price - target) / max(target, 1.0))
+        else:
+            # “9000/10000”这类预算补充通常代表用户能接受该价位，
+            # 不能把所有低于预算的商品视为同等合适。
+            fit = min(1.0, price / max_price)
+            if fit < 0.5:
+                fit *= 0.65
+
+        is_premium_phone_budget = (
+            max_price >= 7000
+            and str(row["category"]) == "数码电子"
+            and self._matches_sub_category(row, "智能手机", str(row["title"]).lower(), str(row["search_text"]).lower())
+        )
+        if is_premium_phone_budget:
+            if c.min_price is None:
+                fit *= fit
+            weight = 0.9 if budget_only or not c.include_terms else 0.55
+        else:
+            weight = 0.28 if budget_only else 0.18
+        return max(0.0, min(1.0, fit)) * weight
 
     def _query_text(self, query: str, c: SearchConstraints) -> str:
         parts = [query]
@@ -463,6 +598,8 @@ class ProductRepository:
             sub_category=row["sub_category"],
             base_price=row["base_price"],
             image_url=row["image_url"],
+            stock_status=row["stock_status"],
+            inventory_count=int(row["inventory_count"]),
             skus=skus,
             highlights=highlights,
             source_url=source_url,

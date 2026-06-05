@@ -1,0 +1,343 @@
+[
+  {
+    "id": "chat_003",
+    "name": "商品知识解释不直接推荐",
+    "turns": [{"query": "SPF50 是什么意思？", "expect_mode": "product_knowledge", "expect_products": false, "must_contain_any": ["SPF", "防晒", "晒伤"]}]
+  },
+  {
+    "id": "chat_004",
+    "name": "弱购物意图先询问",
+    "turns": [{"query": "最近睡眠不好，有什么东西能改善吗？", "expect_mode_any": ["product_knowledge", "weak_purchase_intent", "general_chat"], "expect_products": false, "must_contain_any": ["预算", "如果", "确认", "场景", "睡眠"]}]
+  },
+  {
+    "id": "basic_003",
+    "name": "耳机通勤降噪",
+    "turns": [{"query": "我想买个通勤用的降噪耳机，预算 500 左右。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 1, "must_contain_any": ["耳机", "降噪", "通勤", "500"]}]
+  },
+  {
+    "id": "basic_004",
+    "name": "学生党性价比充电宝",
+    "turns": [{"query": "学生党想买个性价比高的充电宝，别太重。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 1, "must_contain_any": ["充电宝", "轻", "性价比"]}]
+  },
+  {
+    "id": "basic_005",
+    "name": "送礼场景",
+    "turns": [{"query": "给女朋友生日送礼，预算 300，有没有推荐？", "expect_mode_any": ["shopping_assist", "weak_purchase_intent"], "must_contain_any": ["礼物", "预算", "偏好", "收礼", "推荐"]}]
+  },
+  {
+    "id": "skin_001",
+    "name": "油皮洗面奶",
+    "turns": [{"query": "推荐一款适合油皮的洗面奶，100 元以内。", "expect_mode": "shopping_assist", "must_contain_any": ["洗面奶", "油皮", "100", "没有找到", "放宽", "相近"]}]
+  },
+  {
+    "id": "skin_003",
+    "name": "敏感肌风险提示",
+    "turns": [
+      {"query": "推荐一款防晒。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "这款适合敏感肌吗？有没有酒精？", "expect_mode": "product_qa", "expect_products": true, "must_contain_any": ["敏感肌", "酒精", "成分", "证据"]}
+    ]
+  },
+  {
+    "id": "skin_005",
+    "name": "明确覆盖长期偏好",
+    "turns": [
+      {"query": "记住我以后买护肤品不要含酒精。", "expect_profile": true, "expect_products": false},
+      {"query": "这次可以接受酒精，推荐一款便宜防晒。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "美妆护肤", "expected_sub_category": "防晒"}
+    ]
+  },
+  {
+    "id": "digital_001",
+    "name": "iPhone 规格选择",
+    "turns": [{"query": "iPhone 17 Pro Max 不同规格怎么选？", "expect_mode_any": ["product_qa", "shopping_assist", "product_knowledge"], "must_contain_any": ["规格", "容量", "价格", "SKU", "256", "512"]}]
+  },
+  {
+    "id": "digital_002",
+    "name": "手机游戏需求",
+    "turns": [{"query": "推荐一款适合打游戏的手机，预算 5000，不要苹果。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "max_price": 5000, "must_not_brand": ["Apple", "苹果"], "must_contain_any": ["游戏", "手机"]}]
+  },
+  {
+    "id": "digital_003",
+    "name": "充电器兼容性",
+    "turns": [
+      {"query": "推荐一款充电器。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "这个充电器能给 iPhone 用吗？", "expect_mode": "product_qa", "expect_products": true, "must_contain_any": ["iPhone", "兼容", "USB", "证据", "商品库"]}
+    ]
+  },
+  {
+    "id": "digital_005",
+    "name": "来源可信追问",
+    "turns": [
+      {"query": "推荐一款手机。", "expect_products": false, "expect_clarification": true},
+      {"query": "拍照好一点，预算 9000。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "第一款来源可靠吗？", "expect_mode": "product_qa", "expect_products": true, "must_contain_any": ["来源", "商品库", "公开", "证据"]}
+    ]
+  },
+  {
+    "id": "fashion_002",
+    "name": "通勤双肩包",
+    "turns": [{"query": "想买个黑色通勤双肩包，能装电脑，不要太商务。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "服饰运动", "expected_sub_category": "背包", "expected_top_k": 2, "must_contain_any": ["通勤", "背包", "电脑"]}]
+  },
+  {
+    "id": "fashion_003",
+    "name": "穿搭方案而非单品",
+    "turns": [{"query": "周末约会穿搭想买一套，预算 800。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 2, "must_contain_any": ["穿搭", "预算", "约会", "一套"]}]
+  },
+  {
+    "id": "fashion_004",
+    "name": "尺码澄清",
+    "turns": [
+      {"query": "推荐一件外套。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "我 175cm 70kg，这件外套选什么码？", "expect_mode": "product_qa", "must_contain_any": ["尺码", "身高", "体重", "版型", "证据"]}
+    ]
+  },
+  {
+    "id": "fashion_005",
+    "name": "不喜欢款式反馈",
+    "turns": [
+      {"query": "推荐一个通勤包。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "这个太商务了，换个年轻一点的。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1, "must_contain_any": ["年轻", "换", "候选", "继续看"]}
+    ]
+  },
+  {
+    "id": "alt_002",
+    "name": "升级款",
+    "turns": [
+      {"query": "推荐一款防晒。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "有没有更高端一点的升级款？", "expect_mode": "shopping_assist", "expect_products": true, "expect_premium_than_previous_first": true}
+    ]
+  },
+  {
+    "id": "alt_003",
+    "name": "排除品牌后替代",
+    "turns": [
+      {"query": "推荐一款手机。", "expect_products": false, "expect_clarification": true},
+      {"query": "预算 9000，拍照好。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "不要这个品牌，换一个类似的。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1}
+    ]
+  },
+  {
+    "id": "alt_005",
+    "name": "用户选择放宽预算",
+    "turns": [
+      {"query": "推荐 50 元以内、不含酒精、敏感肌可用、非日系的高倍防晒。", "expect_mode": "shopping_assist", "must_contain_any": ["放宽", "预算", "没有找到", "相近"]},
+      {"query": "那预算放宽到 150。", "expect_mode": "shopping_assist", "must_contain_any": ["150", "防晒", "放宽", "没有找到", "相近"]}
+    ]
+  },
+  {
+    "id": "travel_002",
+    "name": "哈尔滨冰雪旅行",
+    "turns": [{"query": "我要去哈尔滨看冰雪大世界，应该准备什么？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 3, "must_contain_any": ["哈尔滨", "保暖", "防滑", "低温", "寒冷"]}]
+  },
+  {
+    "id": "travel_003",
+    "name": "张家界徒步",
+    "turns": [{"query": "去张家界徒步两天，有什么装备推荐？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 3, "must_contain_any": ["张家界", "徒步", "防滑", "背包", "雨"]}]
+  },
+  {
+    "id": "travel_004",
+    "name": "成都城市漫游",
+    "turns": [{"query": "去成都玩三天，主要逛吃逛吃，需要买什么？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 3, "must_contain_any": ["成都", "城市", "步行", "随身", "雨"]}]
+  },
+  {
+    "id": "travel_006",
+    "name": "未知地点泛化",
+    "turns": [{"query": "我要去仙本那海岛旅行，需要买什么？", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 3, "must_contain_any": ["仙本那", "海岛", "防晒", "防水", "轻便"]}]
+  },
+  {
+    "id": "weather_001",
+    "name": "只问天气不推荐商品",
+    "turns": [{"query": "明天成都天气怎么样？", "expect_mode": "weather_query", "expect_products": false, "expect_weather": true, "must_contain_any": ["天气", "气温", "数据源"]}]
+  },
+  {
+    "id": "weather_003",
+    "name": "天气触发购物",
+    "turns": [{"query": "上海明天下雨吗？如果下雨推荐一双适合通勤的鞋。", "expect_mode_any": ["shopping_assist", "travel_weather_planning"], "expect_products": true, "expected_category": "服饰运动", "must_contain_any": ["上海", "雨", "通勤", "鞋"]}]
+  },
+  {
+    "id": "weather_004",
+    "name": "旅行结合天气",
+    "turns": [{"query": "我下周去成都旅行，结合天气帮我准备东西。", "expect_mode": "shopping_assist", "expect_products": true, "expect_weather": true, "expected_min_products": 3, "must_contain_any": ["成都", "天气", "旅行"]}]
+  },
+  {
+    "id": "context_001",
+    "name": "第一款指代",
+    "turns": [
+      {"query": "推荐三款防晒。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "第一款适合油皮吗？", "expect_mode": "product_qa", "expect_products": true, "must_contain_any": ["油皮", "适合", "商品库"]}
+    ]
+  },
+  {
+    "id": "context_002",
+    "name": "刚才那个指代",
+    "turns": [
+      {"query": "推荐一个黑色通勤包。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 1},
+      {"query": "刚才那个加入购物车。", "expect_mode": "transaction", "expect_cart_items_min": 1}
+    ]
+  },
+  {
+    "id": "context_003",
+    "name": "话题从手机切到护肤",
+    "turns": [
+      {"query": "推荐一款手机，预算 4000。", "expect_mode": "shopping_assist"},
+      {"query": "我现在想买油皮防晒，不要酒精。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "美妆护肤", "expected_sub_category": "防晒", "must_not_contain": ["明确含酒精"]}
+    ]
+  },
+  {
+    "id": "context_004",
+    "name": "同话题约束累积",
+    "turns": [
+      {"query": "推荐跑鞋。", "expect_mode": "shopping_assist"},
+      {"query": "要轻一点。", "expect_mode": "shopping_assist"},
+      {"query": "预算 500 以内。", "expect_mode": "shopping_assist", "must_contain_any": ["500", "跑鞋", "放宽", "没有找到"]}
+    ]
+  },
+  {
+    "id": "context_005",
+    "name": "闲聊中插入购物",
+    "turns": [
+      {"query": "今天通勤地铁太吵了，真的烦。", "expect_mode": "general_chat", "expect_products": false},
+      {"query": "顺便帮我看看降噪耳机吧，别太贵。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "must_contain_any": ["降噪", "耳机"]}
+    ]
+  },
+  {
+    "id": "guard_002",
+    "name": "不能编优惠券",
+    "turns": [
+      {"query": "推荐一款手机，预算 9000。", "expect_mode": "shopping_assist", "expect_products": true},
+      {"query": "第一款有没有满减优惠？", "expect_mode": "product_qa", "must_contain_any": ["商品库", "暂无", "未提供", "证据"], "must_not_contain": ["满减100", "优惠券码"]}
+    ]
+  },
+  {
+    "id": "guard_003",
+    "name": "价格必须来自 SKU 或商品库",
+    "turns": [
+      {"query": "推荐一款 iPhone。", "expect_mode": "shopping_assist", "expect_products": true},
+      {"query": "512G 多少钱？", "expect_mode": "product_qa", "must_contain_any": ["512", "10499", "价格", "SKU"]}
+    ]
+  },
+  {
+    "id": "guard_004",
+    "name": "来源不足风险提示",
+    "turns": [{"query": "推荐一款来源最可靠的手机。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "must_contain_any": ["来源", "可信", "商品库"]}]
+  },
+  {
+    "id": "guard_005",
+    "name": "评论不足风险提示",
+    "turns": [{"query": "推荐一款评价最稳的耳机。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "must_contain_any": ["评论", "评分", "风险", "证据"]}]
+  },
+  {
+    "id": "after_001",
+    "name": "保修咨询",
+    "turns": [
+      {"query": "推荐一款耳机。", "expect_mode": "shopping_assist", "expect_products": true},
+      {"query": "这款保修多久？", "expect_mode": "product_knowledge", "must_contain_any": ["售后", "保修", "政策", "证据"]}
+    ]
+  },
+  {
+    "id": "after_002",
+    "name": "退换货政策",
+    "turns": [{"query": "这个商品拆封后还能退吗？", "expect_mode_any": ["product_knowledge", "product_qa"], "must_contain_any": ["退换货", "政策", "证据不足", "商品"]}]
+  },
+  {
+    "id": "after_003",
+    "name": "支付失败解释",
+    "turns": [{"query": "模拟支付失败了怎么办？", "expect_mode_any": ["general_chat", "product_knowledge"], "must_contain_any": ["重新支付", "订单", "购物车", "支付"]}]
+  },
+  {
+    "id": "after_004",
+    "name": "订单后配件推荐",
+    "turns": [{"query": "我买了 iPhone，接下来还需要买什么配件？", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "must_contain_any": ["iPhone", "配件", "充电", "保护"]}]
+  },
+  {
+    "id": "vision_001",
+    "name": "只上传图片找相似",
+    "turns": [
+      {"type": "image", "path": "server/static/product_images/p_clothes_025.jpg", "expect_products": true, "expected_min_products": 1, "expect_similarity_score": true}
+    ]
+  },
+  {
+    "id": "vision_003",
+    "name": "图片无匹配兜底",
+    "turns": [
+      {"type": "image", "path": "server/static/product_images/p_food_016.jpg", "query": "随机室内场景", "expect_mode": "visual_search"}
+    ]
+  },
+  {
+    "id": "vision_004",
+    "name": "视觉模型失败 fallback",
+    "turns": [
+      {"type": "image", "path": "server/static/product_images/p_clothes_001.jpg", "expect_mode": "visual_search", "expect_products": true, "expected_min_products": 1, "expect_similarity_score": true}
+    ]
+  },
+  {
+    "id": "cart_002",
+    "name": "第二款数量改成 2",
+    "turns": [
+      {"query": "推荐几款手机，预算 9000，拍照好一点。", "expect_mode": "shopping_assist", "expect_products": true, "expected_min_products": 2},
+      {"query": "把第二款加入购物车。", "expect_mode": "transaction", "expect_cart_items_min": 1},
+      {"query": "数量改成 2。", "expect_mode": "transaction", "expect_cart_quantity": 2}
+    ]
+  },
+  {
+    "id": "cart_004",
+    "name": "空购物车结算",
+    "turns": [
+      {"query": "去结算。", "expect_mode": "transaction", "must_contain_any": ["购物车还是空", "先让我推荐", "先添加商品"]}
+    ]
+  },
+  {
+    "id": "cart_005",
+    "name": "结算前审查",
+    "test_setup": {"cart_has_items": true},
+    "turns": [
+      {"type": "checkout_review", "expect_mode": "checkout", "expect_checkout_review": true, "must_contain_any": ["购物车", "总价", "SKU", "价格"]}
+    ]
+  },
+  {
+    "id": "cart_007",
+    "name": "Mock 支付失败",
+    "test_setup": {"cart_has_items": true},
+    "turns": [
+      {"type": "mock_payment", "outcome": "failed", "expect_order_status": "FAILED", "expect_cart_not_empty_after_payment": true, "must_contain_any": ["FAILED", "支付", "失败"]}
+    ]
+  },
+  {
+    "id": "model_001",
+    "name": "API Key 无效 fallback",
+    "test_setup": {"provider": "disabled"},
+    "turns": [
+      {"query": "推荐一款手机。", "expect_mode": "shopping_assist", "expect_clarification": true, "must_contain_any": ["拍照", "续航", "游戏", "预算"]}
+    ]
+  },
+  {
+    "id": "model_002",
+    "name": "JSON 解析失败 repair",
+    "turns": [
+      {"query": "推荐一款 4000 以内拍照手机，不要小米。", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "max_price": 4000, "must_not_brand": ["小米"]}
+    ]
+  },
+  {
+    "id": "budget_followup_001",
+    "name": "预算自然后缀追问继续导购",
+    "turns": [
+      {"query": "推荐5000左右的手机，拍照和续航都要好一点", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 2, "max_price": 6750, "must_contain_any": ["5000", "6750", "拍照", "续航", "小米", "OPPO"]},
+      {"query": "8000呢", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 3, "max_price": 8000, "expect_first_price_min": 6500, "must_contain_any": ["8000", "手机"]}
+    ]
+  },
+  {
+    "id": "budget_followup_002",
+    "name": "高预算档首推贴近预算",
+    "turns": [
+      {"query": "推荐手机", "expect_mode": "shopping_assist", "expect_clarification": true, "expect_products": false},
+      {"query": "9000", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 2, "max_price": 9000, "expect_first_price_min": 8500},
+      {"query": "10000", "expect_mode": "shopping_assist", "expect_products": true, "expected_category": "数码电子", "expected_min_products": 3, "max_price": 10000, "expect_first_price_min": 9500}
+    ]
+  },
+  {
+    "id": "model_004",
+    "name": "普通聊天使用用户模型",
+    "turns": [
+      {"query": "你可以正常聊天吗？", "expect_mode": "general_chat", "expect_products": false}
+    ]
+  }
+]

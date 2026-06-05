@@ -152,7 +152,7 @@ class OptionalVisionImageUnderstanding:
         try:
             payload = self._payload(image, query)
             headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-            with httpx.Client(timeout=self.timeout_seconds) as client:
+            with httpx.Client(timeout=self.timeout_seconds, trust_env=False) as client:
                 response = client.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
                 response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]

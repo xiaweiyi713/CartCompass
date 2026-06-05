@@ -31,9 +31,10 @@ class BudgetPlanner:
         compact = re.sub(r"[\s，。！？,.!?]", "", message)
         travel = parse_travel_context(message)
         has_budget = self._budget(message) is not None or "预算" in compact
-        has_plan_word = any(term in compact for term in ["配一套", "套装", "方案", "清单", "全套", "组合", "预算"])
+        has_plan_word = any(term in compact for term in ["配一套", "套装", "方案", "清单", "全套", "组合", "一套"])
+        travel_needs_plan = travel.is_travel and any(term in compact for term in ["应该买什么", "买什么", "准备什么", "需要买什么", "带什么"])
         has_scene = travel.is_travel or any(term in compact for term in ["通勤", "开学"])
-        return has_budget and has_plan_word and has_scene
+        return has_budget and (has_plan_word or travel_needs_plan) and has_scene
 
     def build(self, user_id: str, message: str) -> ShoppingPlan | None:
         budget = self._budget(message) or 1000.0

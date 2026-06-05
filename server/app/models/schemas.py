@@ -21,6 +21,8 @@ class Product(BaseModel):
     sub_category: str
     base_price: float
     image_url: str
+    stock_status: Literal["in_stock", "low_stock", "out_of_stock"] = "in_stock"
+    inventory_count: int = 8
     skus: list[SKU] = Field(default_factory=list)
     highlights: list[str] = Field(default_factory=list)
     reason: str = ""
@@ -108,7 +110,25 @@ class WeatherContext(BaseModel):
 
 class ChatRequest(BaseModel):
     session_id: str = "default"
+    profile_user_id: str | None = None
     message: str
+
+
+class ProfilePreferenceTextRequest(BaseModel):
+    text: str
+
+
+class ProfilePreferenceDeleteRequest(BaseModel):
+    kind: Literal[
+        "budget_preferences",
+        "preferred_features",
+        "excluded_brands",
+        "excluded_ingredients",
+        "skin_type",
+        "travel_scenario",
+    ]
+    value: str | None = None
+    key: str | None = None
 
 
 class LLMConfigRequest(BaseModel):
@@ -234,5 +254,5 @@ class OrderState(BaseModel):
 
 
 class SSEEvent(BaseModel):
-    event: Literal["token", "products", "compare", "cart", "plan", "travel_plan", "profile", "fallback", "error", "done"]
+    event: Literal["token", "products", "compare", "cart", "order", "plan", "travel_plan", "profile", "fallback", "error", "done"]
     data: Any

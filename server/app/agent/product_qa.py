@@ -11,6 +11,8 @@ class ProductQAService:
             return f"{prefix}{self._review_summary(rag)}"
         if any(term in compact for term in ["来源", "真实", "可靠", "证据", "哪里来", "采集"]):
             return f"{prefix}{self._source_summary(product, rag)}"
+        if any(term in compact for term in ["尺码", "什么码", "选码", "身高", "体重"]):
+            return f"{prefix}{self._size_summary(product)}"
         if any(term in compact for term in ["规格", "版本", "颜色", "容量", "尺码", "怎么选", "如何选", "区别"]):
             return f"{prefix}{self._sku_summary(product)}"
         if any(term in compact for term in ["为什么", "推荐理由", "推荐它", "推荐这款", "为什么推荐"]):
@@ -76,6 +78,18 @@ class ProductQAService:
             text += "每个规格都会关联真实商品图片；当前商品库没有独立颜色图时，会复用真实商品主图，不生成或涂改假图。"
         return text
 
+    def _size_summary(self, product) -> str:
+        sku_text = self._sku_summary(product)
+        if product.category != "服饰运动":
+            return "这不是服饰尺码型商品，商品库没有可用于身高、体重换算的尺码表证据。" + sku_text
+        if not product.skus:
+            return "商品库没有尺码 SKU，也没有可核验的身高、体重和版型对应尺码表；我不能编造尺码建议，建议以来源页尺码表为准。"
+        return (
+            "尺码建议只能基于商品库证据判断：当前商品库记录了 SKU 信息，但没有完整的身高、体重、版型尺码表。"
+            + sku_text
+            + "如果要按 175cm/70kg 精准选码，建议优先核对来源页尺码表、版型和试穿评论。"
+        )
+
     def _recommendation_reason(self, product, rag: dict) -> str:
         reasons = []
         if product.reason:
@@ -129,6 +143,14 @@ class ProductQAService:
         if not terms:
             return []
         candidates: list[str] = []
+        chunks = rag.get("retrieved_chunks") if isinstance(rag.get("retrieved_chunks"), list) else []
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            text = str(chunk.get("chunk_text") or "")
+            if any(term in text for term in terms):
+                chunk_type = str(chunk.get("chunk_type") or "chunk")
+                candidates.append(f"{chunk_type}片段：{text[:110]}")
         marketing = str(rag.get("marketing_description") or "")
         if any(term in marketing for term in terms):
             candidates.append(marketing[:120])
