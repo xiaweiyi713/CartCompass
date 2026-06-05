@@ -165,6 +165,7 @@ struct LiquidBackdrop: View {
                 .offset(x: 140, y: 260)
         }
         .ignoresSafeArea()
+        .drawingGroup(opaque: true, colorMode: .linear)
     }
 
     private var baseGradient: LinearGradient {

@@ -5,6 +5,7 @@ enum ChatStreamEvent {
     case products([Product])
     case compare(ComparisonResult)
     case cart(CartState)
+    case order(OrderState)
     case plan(ShoppingPlan)
     case weather(WeatherContext)
     case profile(UserProfile)
@@ -31,7 +32,7 @@ struct ChatStreamService {
     private let client = APIClient()
     private let decoder = JSONDecoder()
 
-    func stream(sessionID: String, message: String) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+    func stream(sessionID: String, profileUserID: String, message: String) -> AsyncThrowingStream<ChatStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -39,7 +40,7 @@ struct ChatStreamService {
                     request.httpMethod = "POST"
                     request.timeoutInterval = 60
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.httpBody = try JSONEncoder().encode(ChatRequest(sessionID: sessionID, message: message))
+                    request.httpBody = try JSONEncoder().encode(ChatRequest(sessionID: sessionID, profileUserID: profileUserID, message: message))
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
@@ -91,6 +92,9 @@ struct ChatStreamService {
         case "cart":
             guard let cart = try? decoder.decode(CartState.self, from: payload) else { return nil }
             return .cart(cart)
+        case "order":
+            guard let order = try? decoder.decode(OrderState.self, from: payload) else { return nil }
+            return .order(order)
         case "plan":
             guard let plan = try? decoder.decode(ShoppingPlan.self, from: payload) else { return nil }
             return .plan(plan)
@@ -117,10 +121,12 @@ struct ChatStreamService {
 
 private struct ChatRequest: Encodable {
     let sessionID: String
+    let profileUserID: String
     let message: String
 
     enum CodingKeys: String, CodingKey {
         case sessionID = "session_id"
+        case profileUserID = "profile_user_id"
         case message
     }
 }

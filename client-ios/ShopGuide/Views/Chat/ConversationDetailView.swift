@@ -3,6 +3,7 @@ import SwiftUI
 /// Read-only view of an archived conversation, opened from the sidebar history.
 struct ConversationDetailView: View {
     let conversation: StoredConversation
+    var delete: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -22,6 +23,17 @@ struct ConversationDetailView: View {
             .navigationTitle(conversation.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let delete {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(role: .destructive) {
+                            delete()
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                                .labelStyle(.iconOnly)
+                        }
+                        .accessibilityLabel("删除历史对话")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("完成") { dismiss() }
                 }

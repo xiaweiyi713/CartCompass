@@ -1,48 +1,40 @@
 import SwiftUI
 
-/// Side-by-side product comparison. A `Grid` keeps columns aligned; the whole
-/// matrix scrolls horizontally so 2-3 products with long values stay readable.
-/// The winning cell in each row is highlighted with an accent glass fill plus a
-/// trophy icon (so it reads without relying on color alone).
+/// Side-by-side product comparison for the "compare first two" flow.
+///
+/// The chat surface is narrow, so this intentionally avoids a horizontally
+/// scrolling matrix. Each comparison dimension owns its own two-column row,
+/// which keeps long values readable without pushing other cells off-screen.
 struct CompareCard: View {
     let comparison: ComparisonResult
 
-    private let labelWidth: CGFloat = 64
-    private let columnWidth: CGFloat = 150
+    private var products: [Product] {
+        Array(comparison.products.prefix(2))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Label("商品对比", systemImage: "square.split.2x2")
                 .font(.headline)
 
-            ScrollView(.horizontal) {
-                Grid(alignment: .topLeading,
-                     horizontalSpacing: Theme.Spacing.sm,
-                     verticalSpacing: Theme.Spacing.sm) {
-                    GridRow {
-                        Color.clear.frame(width: labelWidth, height: 1)
-                        ForEach(comparison.products) { product in
-                            CompareColumnHeader(product: product)
-                                .frame(width: columnWidth, alignment: .leading)
-                        }
-                    }
-
-                    ForEach(comparison.rows) { row in
-                        Divider().gridCellColumns(comparison.products.count + 1)
-                        GridRow {
-                            Text(row.dimension)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(width: labelWidth, alignment: .leading)
-                            ForEach(Array(row.values.enumerated()), id: \.offset) { index, value in
-                                CompareCell(value: value, isWinner: index == row.winner)
-                                    .frame(width: columnWidth, alignment: .leading)
-                            }
-                        }
+            if products.count == 2 {
+                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                    ForEach(products) { product in
+                        CompareProductHeader(product: product)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    ForEach(comparison.rows) { row in
+                        CompareDimensionRow(row: row, productCount: products.count)
+                    }
+                }
+            } else {
+                Text("还需要两款商品才能生成完整对比。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .scrollIndicators(.hidden)
 
             Label(comparison.summary, systemImage: "sparkles")
                 .font(.subheadline)
@@ -53,32 +45,70 @@ struct CompareCard: View {
     }
 }
 
-/// Product column header: thumbnail + brand, kept compact for the matrix.
-private struct CompareColumnHeader: View {
+/// Product header with image, brand and a short title cue.
+private struct CompareProductHeader: View {
     let product: Product
     private let client = APIClient()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
             RemoteProductImage(
                 urls: product.imageCandidates.compactMap { client.absoluteImageURL($0) },
                 contentMode: .fill
             ) {
                 ImageSkeleton()
             }
-            .frame(width: 150, height: 90)
+            .frame(height: 86)
             .clipped()
             .clipShape(.rect(cornerRadius: Theme.Radius.sm))
 
             Text(product.brand)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
+
+            Text(product.title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
     }
 }
 
+/// One comparison dimension rendered as a stable two-column row.
+private struct CompareDimensionRow: View {
+    let row: ComparisonRow
+    let productCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(row.dimension)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                ForEach(0..<productCount, id: \.self) { index in
+                    CompareValueCard(
+                        value: value(at: index),
+                        isWinner: row.winner == index
+                    )
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+        .padding(.top, Theme.Spacing.xs)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private func value(at index: Int) -> String {
+        guard row.values.indices.contains(index) else { return "暂无数据" }
+        return row.values[index]
+    }
+}
+
 /// A single comparison value cell, highlighted when it wins its row.
-private struct CompareCell: View {
+private struct CompareValueCard: View {
     let value: String
     let isWinner: Bool
 
@@ -92,6 +122,7 @@ private struct CompareCell: View {
             Text(value)
                 .font(.caption)
                 .foregroundStyle(isWinner ? .primary : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.xs)

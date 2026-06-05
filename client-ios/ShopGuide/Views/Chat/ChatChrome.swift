@@ -193,6 +193,8 @@ struct ComposerView: View {
                     RoundedRectangle(cornerRadius: 18)
                         .strokeBorder(Theme.Color.cardStroke, lineWidth: 1)
                 )
+                .accessibilityLabel("导购需求输入框")
+                .accessibilityIdentifier("chat.composer.text")
 
             Button(action: toggleSpeech) {
                 glyph(isListening ? "mic.circle.fill" : "mic")

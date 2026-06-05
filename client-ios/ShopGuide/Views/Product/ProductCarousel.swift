@@ -84,8 +84,8 @@ struct ProductCard: View {
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if let tag = product.highlights.first {
-                GlassTag(text: tag, systemImage: "checkmark.seal.fill")
+            if let tag = heroBadgeText {
+                ProductHeroBadge(text: tag)
                     .padding(Theme.Spacing.xs)
             }
         }
@@ -114,6 +114,45 @@ struct ProductCard: View {
     private var aiReason: String? {
         if !product.reason.isEmpty { return product.reason }
         return product.matchReasons.first
+    }
+
+    private var heroBadgeText: String? {
+        if let usage = usageReason {
+            return usage
+        }
+        if let highlight = product.highlights.first {
+            let trimmed = compactBadgeText(highlight)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return product.subCategory.isEmpty ? product.category : product.subCategory
+    }
+
+    private var usageReason: String? {
+        guard let range = product.reason.range(of: "用于") else { return nil }
+        let usage = String(product.reason[range.lowerBound...])
+        let parts = usage.split(separator: "：", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return compactBadgeText(usage) }
+        let role = parts[0].replacingOccurrences(of: "用于", with: "")
+        let reason = compactBadgeText(parts[1], maxLength: 14)
+        if role.isEmpty { return reason }
+        if reason.isEmpty { return role }
+        return "\(role) · \(reason)"
+    }
+
+    private func compactBadgeText(_ text: String, maxLength: Int = 24) -> String {
+        var value = text
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        for separator in ["；", "。", ".", "|", " 规则标签", " 公开来源链接", " 原站价格"] {
+            if let range = value.range(of: separator) {
+                value = String(value[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        if value.count <= maxLength { return value }
+        return String(value.prefix(maxLength)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
     private var addIcon: String {
@@ -165,6 +204,27 @@ struct MatchScoreBadge: View {
         .background(Theme.Color.accent.gradient, in: .capsule)
         .overlay(Capsule().strokeBorder(Theme.Color.glassHighlight, lineWidth: 0.6))
         .accessibilityLabel("匹配度 \(score) 分")
+    }
+}
+
+private struct ProductHeroBadge: View {
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: "checkmark.seal.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(Theme.Color.accent)
+            .lineLimit(2)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: 168, alignment: .leading)
+            .background(.ultraThinMaterial, in: .rect(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.Color.accent.opacity(0.26), lineWidth: 0.8)
+            )
+            .accessibilityLabel(text)
     }
 }
 

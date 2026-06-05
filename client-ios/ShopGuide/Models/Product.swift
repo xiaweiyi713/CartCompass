@@ -37,6 +37,8 @@ struct Product: Codable, Hashable, Identifiable {
     let subCategory: String
     let basePrice: Double
     let imageURL: String
+    let stockStatus: String
+    let inventoryCount: Int
     let skus: [SKU]
     let highlights: [String]
     let reason: String
@@ -65,6 +67,8 @@ struct Product: Codable, Hashable, Identifiable {
         case subCategory = "sub_category"
         case basePrice = "base_price"
         case imageURL = "image_url"
+        case stockStatus = "stock_status"
+        case inventoryCount = "inventory_count"
         case skus
         case highlights
         case reason
@@ -87,6 +91,8 @@ struct Product: Codable, Hashable, Identifiable {
         subCategory = try container.decode(String.self, forKey: .subCategory)
         basePrice = try container.decode(Double.self, forKey: .basePrice)
         imageURL = try container.decode(String.self, forKey: .imageURL)
+        stockStatus = try container.decodeIfPresent(String.self, forKey: .stockStatus) ?? "in_stock"
+        inventoryCount = try container.decodeIfPresent(Int.self, forKey: .inventoryCount) ?? 8
         skus = try container.decodeIfPresent([SKU].self, forKey: .skus) ?? []
         highlights = try container.decodeIfPresent([String].self, forKey: .highlights) ?? []
         reason = try container.decodeIfPresent(String.self, forKey: .reason) ?? ""

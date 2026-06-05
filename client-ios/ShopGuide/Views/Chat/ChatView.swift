@@ -56,9 +56,15 @@ struct ChatView: View {
                         chatMainLayer
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .offset(x: showsSidebar ? drawerWidth : 0)
-                            .blur(radius: showsSidebar ? 4.5 : 0, opaque: false)
                             .brightness(showsSidebar ? -0.08 : 0)
                             .scaleEffect(showsSidebar ? 0.985 : 1, anchor: .leading)
+                            .overlay {
+                                if showsSidebar {
+                                    Rectangle()
+                                        .fill(.black.opacity(0.12))
+                                        .allowsHitTesting(false)
+                                }
+                            }
                             .allowsHitTesting(!showsSidebar)
 
                         ZStack(alignment: .topLeading) {
@@ -130,6 +136,12 @@ struct ChatView: View {
                 ProfileView(
                     profile: model.profile,
                     isLoading: model.isProfileLoading,
+                    addPreference: { text in
+                        model.addProfilePreference(text)
+                    },
+                    removePreference: { deletion in
+                        model.removeProfilePreference(kind: deletion.kind, value: deletion.value, key: deletion.key)
+                    },
                     clearProfile: {
                         model.clearProfile()
                     }
@@ -385,9 +397,8 @@ private struct ChatTopBar: View {
         Image(systemName: name)
             .font(.system(size: 18, weight: .semibold))
             .foregroundStyle(.primary)
-            .frame(width: 40, height: 40)
-            .background(.ultraThinMaterial, in: .circle)
-            .overlay(Circle().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+            .frame(width: 44, height: 44)
+            .modifier(TopCircleButtonSurface())
             .contentShape(.rect)
     }
 }
@@ -769,6 +780,10 @@ private struct MessageRow: View {
             if let cart = message.cart {
                 CartSummaryCard(cart: cart)
             }
+        case .order:
+            if let order = message.order {
+                OrderSummaryCard(order: order)
+            }
         case .plan:
             if let plan = message.plan {
                 ShoppingPlanCard(plan: plan, path: $path, addToCart: addToCart)
@@ -893,6 +908,64 @@ private struct WeatherMetric: View {
     }
 }
 
+private struct OrderSummaryCard: View {
+    let order: OrderState
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Theme.Color.onAccent)
+                .frame(width: 30, height: 30)
+                .background(Theme.Color.accent, in: .circle)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("模拟订单")
+                            .font(.headline)
+                        Text(order.orderID)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("¥\(order.totalPrice, specifier: "%.0f")")
+                        .font(.title3.weight(.bold))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(order.address, systemImage: "mappin.and.ellipse")
+                    Label("\(order.items.reduce(0) { $0 + $1.quantity }) 件商品 · \(order.paymentStatus)", systemImage: "shippingbox")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(order.items.prefix(3)) { item in
+                        HStack(spacing: 8) {
+                            Text(item.title)
+                                .lineLimit(1)
+                            Spacer()
+                            Text("x\(item.quantity)")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption.weight(.medium))
+                    }
+                    if order.items.count > 3 {
+                        Text("还有 \(order.items.count - 3) 个条目")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(13)
+            .liquidGlass(radius: Theme.Radius.md, elevated: false)
+
+            Spacer(minLength: 18)
+        }
+    }
+}
+
 private struct FallbackCard: View {
     let notice: FallbackNotice
     let sendPrompt: (String) -> Void
@@ -986,6 +1059,7 @@ private struct FlowActionButtons: View {
 
 private struct CartToolbarLabel: View {
     let count: Int
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -1015,10 +1089,27 @@ private struct CartToolbarLabel: View {
                 }
         }
         .frame(width: 44, height: 44, alignment: .center)
-        .background(.ultraThinMaterial, in: .circle)
-        .overlay(Circle().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+        .modifier(TopCircleButtonSurface())
         .contentShape(Rectangle())
         .animation(.snappy(duration: 0.2), value: count)
+    }
+}
+
+private struct TopCircleButtonSurface: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+        .background(.ultraThinMaterial, in: .circle)
+        .background(
+            Circle()
+                .fill(colorScheme == .light ? Color.white.opacity(0.93) : Color.white.opacity(0.12))
+        )
+        .overlay(
+            Circle()
+                .strokeBorder(Color.primary.opacity(colorScheme == .light ? 0.18 : 0.14), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(colorScheme == .light ? 0.12 : 0.24), radius: 10, y: 5)
     }
 }
 
@@ -1026,27 +1117,18 @@ private struct AssistantThinkingBubble: View {
     @State private var phase = false
 
     var body: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(Color.secondary.opacity(0.45))
-                    .frame(width: 7, height: 7)
-                    .scaleEffect(phase ? 1.0 : 0.58)
-                    .animation(
-                        .easeInOut(duration: 0.72)
-                            .repeatForever()
-                            .delay(Double(index) * 0.12),
-                        value: phase
-                    )
-            }
-        }
+        Text("Thinking...")
+            .font(.callout.weight(.medium))
+            .foregroundStyle(.secondary)
+            .opacity(phase ? 1 : 0.55)
+            .animation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true), value: phase)
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
         .liquidGlass(radius: Theme.Radius.md, elevated: false)
         .onAppear {
             phase = true
         }
-        .accessibilityLabel("正在思考")
+        .accessibilityLabel("Thinking")
     }
 }
 

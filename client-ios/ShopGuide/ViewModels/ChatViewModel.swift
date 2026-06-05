@@ -26,16 +26,21 @@ final class ChatViewModel {
     var errorMessage: String?
 
     private(set) var sessionID: String
+    private(set) var profileUserID: String
     private let service = ChatStreamService()
     private let cartService = CartAPIService()
     private let imageSearchService = ImageSearchService()
     private let profileService = ProfileAPIService()
     private let llmService = LLMAPIService()
     private var assistantMessageID: UUID?
+    private var pendingAssistantText = ""
+    private var tokenFlushTask: Task<Void, Never>?
+    private static let tokenFlushIntervalNanoseconds: UInt64 = 40_000_000
 
     init() {
         let initialSessionID = Self.makeSessionID()
         self.sessionID = initialSessionID
+        self.profileUserID = Self.loadProfileUserID()
         self.cart = CartState(sessionID: initialSessionID, items: [], totalPrice: 0)
     }
 
@@ -78,14 +83,26 @@ final class ChatViewModel {
         latestOrder = nil
         checkoutSession = nil
         checkoutURL = nil
-        profile = .empty
         conversationModeLabel = "普通聊天"
         speechOutputText = nil
         assistantMessageID = nil
+        pendingAssistantText = ""
+        tokenFlushTask?.cancel()
+        tokenFlushTask = nil
     }
 
     private static func makeSessionID() -> String {
         "ios-\(UUID().uuidString.prefix(8))"
+    }
+
+    private static func loadProfileUserID() -> String {
+        let key = "shopguide.profileUserID.v1"
+        if let existing = UserDefaults.standard.string(forKey: key), !existing.isEmpty {
+            return existing
+        }
+        let created = "ios-user-\(UUID().uuidString.prefix(10))"
+        UserDefaults.standard.set(created, forKey: key)
+        return created
     }
 
     @MainActor
@@ -101,7 +118,7 @@ final class ChatViewModel {
 
         Task {
             do {
-                for try await event in service.stream(sessionID: sessionID, message: text) {
+                for try await event in service.stream(sessionID: sessionID, profileUserID: profileUserID, message: text) {
                     await MainActor.run {
                         handle(event)
                     }
@@ -138,6 +155,12 @@ final class ChatViewModel {
         case .cart(let state):
             cart = state
             messages.append(ChatMessage(role: .cart, cart: state))
+        case .order(let order):
+            latestOrder = order
+            messages.append(ChatMessage(role: .order, order: order))
+            if !order.postPurchaseRecommendations.isEmpty {
+                messages.append(ChatMessage(role: .products, products: order.postPurchaseRecommendations))
+            }
         case .plan(let plan):
             messages.append(ChatMessage(role: .plan, plan: plan))
         case .weather(let weather):
@@ -148,12 +171,14 @@ final class ChatViewModel {
         case .fallback(let notice):
             appendRecoveryNotice(notice)
         case .done(let payload):
+            flushPendingAssistantText()
             if let mode = payload.mode {
                 conversationModeLabel = Self.modeLabel(for: mode)
             }
             publishSpeechOutputIfNeeded()
             isStreaming = false
         case .error(let message):
+            flushPendingAssistantText()
             appendRecoveryNotice(.chatFailure(message: message))
             isStreaming = false
         }
@@ -161,11 +186,35 @@ final class ChatViewModel {
 
     @MainActor
     private func appendAssistantToken(_ token: String) {
-        guard let assistantMessageID,
-              let index = messages.firstIndex(where: { $0.id == assistantMessageID }) else {
+        pendingAssistantText += token
+        guard tokenFlushTask == nil else { return }
+        tokenFlushTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: Self.tokenFlushIntervalNanoseconds)
+            } catch {
+                return
+            }
+            await MainActor.run {
+                self?.flushPendingAssistantText()
+            }
+        }
+    }
+
+    @MainActor
+    private func flushPendingAssistantText() {
+        guard !pendingAssistantText.isEmpty else {
+            tokenFlushTask = nil
             return
         }
-        messages[index].text += token
+        guard let assistantMessageID,
+              let index = messages.firstIndex(where: { $0.id == assistantMessageID }) else {
+            pendingAssistantText = ""
+            tokenFlushTask = nil
+            return
+        }
+        messages[index].text += pendingAssistantText
+        pendingAssistantText = ""
+        tokenFlushTask = nil
     }
 
     @MainActor
@@ -313,7 +362,7 @@ final class ChatViewModel {
         isProfileLoading = true
         Task {
             do {
-                let profile = try await profileService.fetch(sessionID: sessionID)
+                let profile = try await profileService.fetch(sessionID: profileUserID)
                 await MainActor.run {
                     self.profile = profile
                     isProfileLoading = false
@@ -333,7 +382,7 @@ final class ChatViewModel {
         isProfileLoading = true
         Task {
             do {
-                let profile = try await profileService.clear(sessionID: sessionID)
+                let profile = try await profileService.clear(sessionID: profileUserID)
                 await MainActor.run {
                     self.profile = profile
                     messages.append(ChatMessage(role: .assistant, text: "长期偏好已清除。"))
@@ -342,6 +391,47 @@ final class ChatViewModel {
             } catch {
                 await MainActor.run {
                     errorMessage = "清除偏好失败：\(error.localizedDescription)"
+                    isProfileLoading = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func addProfilePreference(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !isProfileLoading else { return }
+        isProfileLoading = true
+        Task {
+            do {
+                let profile = try await profileService.addPreference(userID: profileUserID, text: trimmed)
+                await MainActor.run {
+                    self.profile = profile
+                    isProfileLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "保存偏好失败：\(error.localizedDescription)"
+                    isProfileLoading = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func removeProfilePreference(kind: String, value: String? = nil, key: String? = nil) {
+        guard !isProfileLoading else { return }
+        isProfileLoading = true
+        Task {
+            do {
+                let profile = try await profileService.removePreference(userID: profileUserID, kind: kind, value: value, key: key)
+                await MainActor.run {
+                    self.profile = profile
+                    isProfileLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "删除偏好失败：\(error.localizedDescription)"
                     isProfileLoading = false
                 }
             }

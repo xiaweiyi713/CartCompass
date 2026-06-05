@@ -218,7 +218,7 @@ private struct ReviewSummarySection: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .liquidGlass(radius: Theme.Radius.md)
+        .liquidGlass(radius: Theme.Radius.md, elevated: false)
     }
 }
 
@@ -269,27 +269,32 @@ private struct ReviewTag: View {
     let text: String
     var systemImage: String?
     var tint: Color = Theme.Color.accent
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         label
-            .font(.caption.weight(.semibold))
+            .font(.caption.weight(.medium))
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
-            .foregroundStyle(tint)
+            .foregroundStyle(.primary)
             .padding(.horizontal, Theme.Spacing.sm)
             .padding(.vertical, Theme.Spacing.xxs + 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous).fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous).fill(tint.opacity(0.14))
                 RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
-                    .strokeBorder(tint.opacity(0.32), lineWidth: 0.8)
+                    .fill(colorScheme == .dark ? Color.white.opacity(0.12) : Color.white.opacity(0.62))
+                RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                    .fill(tint.opacity(colorScheme == .dark ? 0.07 : 0.04))
+                RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.16 : 0.14), lineWidth: 0.8)
             }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.05 : 0.025), radius: 2, y: 1)
     }
 
     @ViewBuilder private var label: some View {
         if let systemImage {
             Label(text, systemImage: systemImage)
+                .symbolRenderingMode(.hierarchical)
         } else {
             Text(text)
         }

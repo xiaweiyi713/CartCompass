@@ -6,6 +6,7 @@ enum ChatRole: String, Hashable {
     case products
     case compare
     case cart
+    case order
     case plan
     case weather
     case profile
@@ -19,6 +20,7 @@ struct ChatMessage: Identifiable, Hashable {
     var products: [Product]
     var comparison: ComparisonResult?
     var cart: CartState?
+    var order: OrderState?
     var plan: ShoppingPlan?
     var weather: WeatherContext?
     var profile: UserProfile?
@@ -31,6 +33,7 @@ struct ChatMessage: Identifiable, Hashable {
         products: [Product] = [],
         comparison: ComparisonResult? = nil,
         cart: CartState? = nil,
+        order: OrderState? = nil,
         plan: ShoppingPlan? = nil,
         weather: WeatherContext? = nil,
         profile: UserProfile? = nil,
@@ -42,6 +45,7 @@ struct ChatMessage: Identifiable, Hashable {
         self.products = products
         self.comparison = comparison
         self.cart = cart
+        self.order = order
         self.plan = plan
         self.weather = weather
         self.profile = profile

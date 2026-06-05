@@ -16,6 +16,7 @@ targets:
       - ShopGuide
     settings:
       base:
+        PRODUCT_NAME: ShopGuide
         PRODUCT_BUNDLE_IDENTIFIER: com.challenge.ShopGuide
         INFOPLIST_KEY_CFBundleDisplayName: ShopGuide
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

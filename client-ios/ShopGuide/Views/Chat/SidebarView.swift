@@ -14,6 +14,7 @@ struct SidebarView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \StoredConversation.createdAt, order: .reverse) private var conversations: [StoredConversation]
     @State private var selected: StoredConversation?
+    @State private var pendingDeletion: StoredConversation?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -42,7 +43,23 @@ struct SidebarView: View {
         .padding(.bottom, Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(item: $selected) { conversation in
-            ConversationDetailView(conversation: conversation)
+            ConversationDetailView(conversation: conversation) {
+                selected = nil
+                pendingDeletion = conversation
+            }
+        }
+        .alert("删除历史对话？", isPresented: deleteAlertBinding) {
+            Button("删除", role: .destructive) {
+                if let pendingDeletion {
+                    deleteConversation(pendingDeletion)
+                }
+                pendingDeletion = nil
+            }
+            Button("取消", role: .cancel) {
+                pendingDeletion = nil
+            }
+        } message: {
+            Text("删除后无法恢复。")
         }
     }
 
@@ -87,12 +104,18 @@ struct SidebarView: View {
             ScrollView {
                 LazyVStack(spacing: 4) {
                     ForEach(conversations) { conversation in
-                        HistoryRow(conversation: conversation) {
-                            selected = conversation
-                        }
+                        HistoryRow(
+                            conversation: conversation,
+                            open: {
+                                selected = conversation
+                            },
+                            delete: {
+                                pendingDeletion = conversation
+                            }
+                        )
                         .contextMenu {
                             Button("删除", systemImage: "trash", role: .destructive) {
-                                context.delete(conversation)
+                                pendingDeletion = conversation
                             }
                         }
                     }
@@ -109,6 +132,25 @@ struct SidebarView: View {
         }
         model.startNewConversation()
         withAnimation(Theme.Motion.spring) { isOpen = false }
+    }
+
+    private var deleteAlertBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeletion != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingDeletion = nil
+                }
+            }
+        )
+    }
+
+    private func deleteConversation(_ conversation: StoredConversation) {
+        if selected?.id == conversation.id {
+            selected = nil
+        }
+        context.delete(conversation)
+        try? context.save()
     }
 }
 
@@ -131,10 +173,11 @@ private struct SidebarRow: View {
 
 private struct HistoryRow: View {
     let conversation: StoredConversation
-    let action: () -> Void
+    let open: () -> Void
+    let delete: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: open) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(conversation.title)
                     .font(.subheadline.weight(.medium))
@@ -146,11 +189,25 @@ private struct HistoryRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .padding(.horizontal, Theme.Spacing.sm)
-            .padding(.vertical, Theme.Spacing.xs)
-            .background(.ultraThinMaterial, in: .rect(cornerRadius: Theme.Radius.sm))
+            .padding(.trailing, 42)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.xs)
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: Theme.Radius.sm))
+        .contentShape(.rect)
+        .overlay(alignment: .trailing) {
+            Button(action: delete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, height: 34)
+                    .background(.ultraThinMaterial, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("删除历史对话 \(conversation.title)")
+            .padding(.trailing, Theme.Spacing.xs)
+        }
     }
 }
