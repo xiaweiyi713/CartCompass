@@ -26,7 +26,7 @@ DEFAULT_QUERIES = [
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Measure reproducible ShopGuide chat performance.")
+    parser = argparse.ArgumentParser(description="Measure reproducible CartCompass chat performance.")
     parser.add_argument("--repeat", type=int, default=2, help="Run each query this many times. Repeat >1 demonstrates cache hit rate.")
     parser.add_argument("--output", type=Path, default=Path("server/evaluation/output/performance_report.json"))
     parser.add_argument("--query", action="append", default=[], help="Override default query set. Can be repeated.")

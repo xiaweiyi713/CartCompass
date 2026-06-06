@@ -65,7 +65,7 @@ struct SidebarView: View {
 
     private var header: some View {
         HStack {
-            Label("ShopGuide", systemImage: "sparkle.magnifyingglass")
+            Label("智购罗盘", systemImage: "sparkle.magnifyingglass")
                 .font(.headline)
             Spacer()
             Button(action: startNewChat) {

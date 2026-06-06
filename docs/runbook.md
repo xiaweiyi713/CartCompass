@@ -1,4 +1,4 @@
-# Demo Runbook
+# 智购罗盘 CartCompass Demo Runbook
 
 这份 runbook 用于在干净环境里复现“克隆 -> 起后端 -> 跑 iOS -> 展示可观测性”的最短路径，避免答辩现场出现大量手动配置。
 
@@ -57,7 +57,7 @@ cd client-ios
 open ShopGuide.xcodeproj
 ```
 
-选择 iPhone 真机或模拟器运行。答辩演示优先使用真机 + Release，因为模拟器对毛玻璃和语音链路更容易受宿主机影响。
+选择 iPhone 真机或模拟器运行。App 显示名为「智购罗盘」。答辩演示优先使用真机 + Release，因为模拟器对毛玻璃和语音链路更容易受宿主机影响。
 
 如果改过 `client-ios/project.yml` 才需要重新生成工程；普通演示不要现场跑 xcodegen。
 

@@ -242,7 +242,7 @@ class WeatherService:
         )
 
     def _get_json(self, url: str) -> dict:
-        request = urllib.request.Request(url, headers={"User-Agent": "ShopGuideWeather/1.0"})
+        request = urllib.request.Request(url, headers={"User-Agent": "CartCompassWeather/1.0"})
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 

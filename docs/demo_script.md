@@ -29,7 +29,7 @@ cd client-ios
 open ShopGuide.xcodeproj
 ```
 
-选 iPhone 模拟器运行 `ShopGuide`(默认连 `http://127.0.0.1:8000`)。演示间想要干净上下文,点侧栏顶部「新对话」即可换新 session。
+选 iPhone 模拟器运行「智购罗盘」(默认连 `http://127.0.0.1:8000`)。演示间想要干净上下文,点侧栏顶部「新对话」即可换新 session。
 
 > 只有改了 `project.yml` 才需要 `xcodegen generate`。若 Run 报 `Multiple commands produce '….app'`:`git checkout -- client-ios/ShopGuide.xcodeproj/project.pbxproj` 还原已提交工程,删 `~/Library/Developer/Xcode/DerivedData/ShopGuide-*` 后重开 Xcode。
 

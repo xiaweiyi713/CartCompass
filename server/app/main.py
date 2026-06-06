@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="ShopGuide AI Agent", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="CartCompass AI Agent", version="0.1.0", lifespan=lifespan)
 
 # A wildcard origin cannot be combined with credentialed requests per the CORS
 # spec, so only enable credentials once an explicit whitelist is configured.

@@ -1,4 +1,4 @@
-# ShopGuide · 基于 RAG 的多模态电商导购 AI Agent
+# 智购罗盘 CartCompass · 基于 RAG 的多模态电商导购 AI Agent
 
 > 字节 AI 全栈挑战赛参赛作品 · 原生 iOS(SwiftUI)+ FastAPI 后端
 > **像豆包一样自然聊天,像导购一样精准选品,且商品事实零幻觉。**
@@ -53,7 +53,7 @@ PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 > ⚠️ 一定要确认 `python --version` 是 3.11.x。macOS / Xcode 自带的 `python3` 往往是 3.9,直接用它建 venv 会在启动时报 `unsupported operand type(s) for |`(代码用了 3.10+ 的 `str | None` 注解)。
 >
-> DB / 静态目录路径由代码位置解析为绝对路径,**从项目根或 `server/` 目录启动都不会找错库**(`.env` 不要用相对路径覆盖 `SHOPGUIDE_DB`)。
+> DB / 静态目录路径由代码位置解析为绝对路径,**从项目根或 `server/` 目录启动都不会找错库**(`.env` 不要用相对路径覆盖 `CARTCOMPASS_DB`;旧的 `SHOPGUIDE_DB` 仍兼容)。
 >
 > **开箱即用**:312+9=321 条演示商品库已作为种子快照提交在 `server/storage/seed.sqlite3`。首次启动检测不到运行库时会自动复制种子库,无需手动入库(Docker 同理)。
 >
@@ -64,7 +64,7 @@ PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ### Docker
 
 ```bash
-docker compose up --build shopguide-api    # http://127.0.0.1:8000
+docker compose up --build cartcompass-api  # http://127.0.0.1:8000
 ```
 
 Compose 已透传 `ARK_*`、`VISION_UNDERSTANDING_*`、`TEXT_EMBEDDING_*`(多模态语义/图搜)和 `CORS_ALLOW_ORIGINS`,并挂载 `storage` / `static`、内置健康检查。
@@ -78,7 +78,7 @@ cd client-ios
 open ShopGuide.xcodeproj
 ```
 
-选 iPhone 模拟器 Run。模拟器默认连接 `http://127.0.0.1:8000`。
+选 iPhone 模拟器 Run。App 显示名为「智购罗盘」,模拟器默认连接 `http://127.0.0.1:8000`。
 
 > 只有改了 `client-ios/project.yml`(如后端地址 `SHOPGUIDE_API_BASE_URL`)才需要 `xcodegen generate` 重新生成,然后重开工程。
 >
@@ -127,6 +127,9 @@ python3 server/scripts/stress_test_retrieval.py --sample 1000 --concurrency 16 -
 | `docs/architecture.md` | 系统架构与模块说明 |
 | `docs/llm_architecture.md` | 可控 Agent、规划器、多模态嵌入与防幻觉 |
 | `docs/rag_design.md` | RAG、上下文、反选与防幻觉设计 |
+| `docs/submission_form.md` | 按比赛提交模板整理的提交表 |
+| `docs/submission_design_document.md` | 可复制到飞书的技术设计文档 |
+| `docs/submission_instruction_document.md` | 可复制到飞书的部署与体验说明文档 |
 | `docs/defense_walkthrough.md` | 3 分钟核心链路讲解稿 |
 | `docs/api.md` | 接口文档 |
 | `docs/runbook.md` | 干净环境启动、自检、Chroma 演示与回归测试步骤 |

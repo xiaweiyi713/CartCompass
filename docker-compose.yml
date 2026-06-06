@@ -1,13 +1,13 @@
 services:
-  shopguide-api:
+  cartcompass-api:
     build:
       context: .
       dockerfile: server/Dockerfile
     ports:
       - "8000:8000"
     environment:
-      SHOPGUIDE_DB: /app/server/storage/shopguide.sqlite3
-      SHOPGUIDE_STATIC_DIR: /app/server/static
+      CARTCOMPASS_DB: /app/server/storage/shopguide.sqlite3
+      CARTCOMPASS_STATIC_DIR: /app/server/static
       ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
       ARK_MODEL: ${ARK_MODEL:-doubao-seed-2-0-lite-260428}
       ARK_API_KEY: ${ARK_API_KEY:-}

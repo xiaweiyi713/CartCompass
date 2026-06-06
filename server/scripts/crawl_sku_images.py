@@ -14,7 +14,7 @@ STATIC_IMAGE_DIR = SERVER_DIR / "static" / "product_images"
 OUTPUT_DIR = SERVER_DIR / "data_pipeline" / "output" / "sku_images"
 DB_PATH = SERVER_DIR / "storage" / "shopguide.sqlite3"
 
-APPLE_USER_AGENT = "Mozilla/5.0 (compatible; ShopGuideChallengeBot/0.1; +local-development)"
+APPLE_USER_AGENT = "Mozilla/5.0 (compatible; CartCompassChallengeBot/0.1; +local-development)"
 IPHONE_17_PRO_BUY_URL = "https://www.apple.com/shop/buy-iphone/iphone-17-pro/6.3-inch-display-256gb-cosmic-orange-unlocked"
 IPHONE_17_PRO_MAX_BUY_URL = "https://www.apple.com/shop/buy-iphone/iphone-17-pro/6.9-inch-display-256gb-cosmic-orange-unlocked"
 

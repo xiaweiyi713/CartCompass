@@ -55,7 +55,7 @@ def test_chat_trace_and_metrics_are_exposed() -> None:
 def test_admin_metrics_dashboard_renders_html() -> None:
     response = client.get("/admin/metrics")
     assert response.status_code == 200
-    assert "ShopGuide 评测与可观测性 Dashboard" in response.text
+    assert "智购罗盘 CartCompass 评测与可观测性 Dashboard" in response.text
     assert "商品总数" in response.text
     assert "当前向量库" in response.text
     assert "retrieval cache hit rate" in response.text

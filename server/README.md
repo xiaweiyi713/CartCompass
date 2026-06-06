@@ -1,4 +1,4 @@
-# ShopGuide Server
+# CartCompass Server
 
 FastAPI backend for the challenge MVP. It imports the provided ecommerce dataset,
 stores structured product facts in SQLite, builds a small local vector index, and
@@ -29,7 +29,7 @@ From the repository root, Docker Compose pins the runtime to Python 3.11 and
 starts the same FastAPI service:
 
 ```bash
-docker compose up --build shopguide-api
+docker compose up --build cartcompass-api
 ```
 
 The service mounts `./server/storage` and `./server/static`, so the local SQLite
@@ -158,7 +158,7 @@ the backend:
 pip install -r server/requirements-optional.txt
 export VECTOR_STORE_BACKEND=chroma
 export CHROMA_PATH=server/storage/chroma
-export CHROMA_COLLECTION=shopguide_products
+export CHROMA_COLLECTION=cartcompass_products
 PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 

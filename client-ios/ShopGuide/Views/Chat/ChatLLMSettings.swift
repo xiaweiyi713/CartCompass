@@ -148,7 +148,7 @@ private struct ModelProviderDetailView: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
             } footer: {
-                Text("模型可以替换，但商品检索、工具调用、RAG 和 Grounding Guard 始终由 ShopGuide 后端控制。")
+                Text("模型可以替换，但商品检索、工具调用、RAG 和 Grounding Guard 始终由智购罗盘后端控制。")
             }
         }
         .navigationTitle(preset.name)

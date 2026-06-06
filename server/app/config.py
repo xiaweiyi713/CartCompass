@@ -35,14 +35,18 @@ def _env_list(name: str, default: list[str]) -> list[str]:
         return default
     return [item.strip() for item in value.split(",") if item.strip()]
 
-DB_PATH = Path(os.getenv("SHOPGUIDE_DB", SERVER_DIR / "storage" / "shopguide.sqlite3"))
+DB_PATH = Path(
+    os.getenv("CARTCOMPASS_DB")
+    or os.getenv("SHOPGUIDE_DB")
+    or SERVER_DIR / "storage" / "shopguide.sqlite3"
+)
 STORAGE_DIR = DB_PATH.parent
-STATIC_DIR = Path(os.getenv("SHOPGUIDE_STATIC_DIR", SERVER_DIR / "static"))
+STATIC_DIR = Path(os.getenv("CARTCOMPASS_STATIC_DIR") or os.getenv("SHOPGUIDE_STATIC_DIR") or SERVER_DIR / "static")
 PRODUCT_IMAGE_DIR = STATIC_DIR / "product_images"
 
 VECTOR_STORE_BACKEND = os.getenv("VECTOR_STORE_BACKEND", "sqlite").strip().lower()
 CHROMA_PATH = Path(os.getenv("CHROMA_PATH", SERVER_DIR / "storage" / "chroma"))
-CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "shopguide_products")
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "cartcompass_products")
 
 # CORS allowlist. Default "*" keeps local demos and the native iOS client
 # friction-free; set a comma-separated whitelist (e.g.

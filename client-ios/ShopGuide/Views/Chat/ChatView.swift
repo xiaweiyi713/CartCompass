@@ -477,14 +477,14 @@ private final class SpeechInputController: NSObject {
             let speechStatus = await requestSpeechAuthorization()
             guard speechStatus == .authorized else {
                 await MainActor.run {
-                    onError("语音识别权限未开启，请在系统设置中允许 ShopGuide 使用语音识别。")
+                    onError("语音识别权限未开启，请在系统设置中允许智购罗盘使用语音识别。")
                 }
                 return
             }
             let microphoneAllowed = await requestMicrophonePermission()
             guard microphoneAllowed else {
                 await MainActor.run {
-                    onError("麦克风权限未开启，请在系统设置中允许 ShopGuide 使用麦克风。")
+                    onError("麦克风权限未开启，请在系统设置中允许智购罗盘使用麦克风。")
                 }
                 return
             }

@@ -1,6 +1,6 @@
 # LLM Architecture
 
-ShopGuide uses a **controlled agent** architecture: an LLM conversation planner
+CartCompass uses a **controlled agent** architecture: an LLM conversation planner
 decides *what to do* each turn, but every product fact comes from deterministic
 tools over the local catalog, so grounding is preserved.
 

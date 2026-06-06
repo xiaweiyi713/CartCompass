@@ -48,7 +48,7 @@
 		51DF31032FE899E0C2D39390 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		607945A42E7377BE90D3AD9A /* ChatLLMSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLLMSettings.swift; sourceTree = "<group>"; };
 		68AEB50E8EC298C9818881EC /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
-		6D0D16F3D1FF019499D81A58 /* ShopGuide.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ShopGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6D0D16F3D1FF019499D81A58 /* CartCompass.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CartCompass.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		809A563D278DBD4C44E34215 /* PrivacyComplianceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyComplianceView.swift; sourceTree = "<group>"; };
 		82D758C4C468B330B92D4329 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		948CF2D54C049D4F709214E5 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -68,7 +68,7 @@
 		180E7CFDE7DBC5C3EB94AC57 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6D0D16F3D1FF019499D81A58 /* ShopGuide.app */,
+				6D0D16F3D1FF019499D81A58 /* CartCompass.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -196,7 +196,7 @@
 			packageProductDependencies = (
 			);
 			productName = ShopGuide;
-			productReference = 6D0D16F3D1FF019499D81A58 /* ShopGuide.app */;
+			productReference = 6D0D16F3D1FF019499D81A58 /* CartCompass.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -282,7 +282,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = ShopGuide/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ShopGuide;
+				INFOPLIST_KEY_CFBundleDisplayName = "\U667a\U8d2d\U7f57\U76d8";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄实物图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于把你的语音需求转成文字导购请求。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于选择商品图片，帮助智能导购检索相似商品。";
@@ -293,7 +293,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.challenge.ShopGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.challenge.CartCompass;
+				PRODUCT_NAME = CartCompass;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -306,7 +307,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = ShopGuide/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ShopGuide;
+				INFOPLIST_KEY_CFBundleDisplayName = "\U667a\U8d2d\U7f57\U76d8";
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍摄实物图片，帮助智能导购检索相似商品。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于把你的语音需求转成文字导购请求。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "用于选择商品图片，帮助智能导购检索相似商品。";
@@ -317,7 +318,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.challenge.ShopGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.challenge.CartCompass;
+				PRODUCT_NAME = CartCompass;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

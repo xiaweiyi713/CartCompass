@@ -13,12 +13,12 @@ from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parents[2]
 SERVER_DIR = REPO_DIR / "server"
-DB_PATH = Path(os.getenv("SHOPGUIDE_DB", SERVER_DIR / "storage" / "shopguide.sqlite3"))
+DB_PATH = Path(os.getenv("CARTCOMPASS_DB") or os.getenv("SHOPGUIDE_DB", SERVER_DIR / "storage" / "shopguide.sqlite3"))
 SEED_DB_PATH = SERVER_DIR / "storage" / "seed.sqlite3"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="ShopGuide local demo self-check")
+    parser = argparse.ArgumentParser(description="CartCompass local demo self-check")
     parser.add_argument("--url", default="http://127.0.0.1:8000", help="Running backend URL")
     parser.add_argument("--require-server", action="store_true", help="Fail if /api/health is not reachable")
     args = parser.parse_args()
@@ -31,7 +31,7 @@ def main() -> int:
     _check_database(failures)
     _check_health(args.url.rstrip("/"), failures if args.require_server else warnings)
 
-    print("\nShopGuide self-check")
+    print("\nCartCompass self-check")
     print("====================")
     if warnings:
         print("\nWarnings:")

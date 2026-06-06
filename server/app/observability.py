@@ -149,7 +149,7 @@ class ObservabilityStore:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ShopGuide Evaluation Dashboard</title>
+  <title>CartCompass Evaluation Dashboard</title>
   <style>
     :root {{ color-scheme: light dark; --accent:#168fa2; --bg:#f6f8fa; --card:#ffffff; --line:#d8e2e7; }}
     @media (prefers-color-scheme: dark) {{ :root {{ --bg:#101417; --card:#172025; --line:#2a3a41; }} }}
@@ -170,7 +170,7 @@ class ObservabilityStore:
 </head>
 <body>
   <header>
-    <h1>ShopGuide 评测与可观测性 Dashboard</h1>
+    <h1>智购罗盘 CartCompass 评测与可观测性 Dashboard</h1>
     <p>商品覆盖、Agent 调用、延迟分布和最近 Trace 都在这里汇总。</p>
   </header>
   <main>

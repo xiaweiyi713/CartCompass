@@ -16,9 +16,9 @@ targets:
       - ShopGuide
     settings:
       base:
-        PRODUCT_NAME: ShopGuide
-        PRODUCT_BUNDLE_IDENTIFIER: com.challenge.ShopGuide
-        INFOPLIST_KEY_CFBundleDisplayName: ShopGuide
+        PRODUCT_NAME: CartCompass
+        PRODUCT_BUNDLE_IDENTIFIER: com.challenge.CartCompass
+        INFOPLIST_KEY_CFBundleDisplayName: 智购罗盘
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_SHOPGUIDE_API_BASE_URL: http://127.0.0.1:8000
         INFOPLIST_KEY_NSCameraUsageDescription: 用于拍摄实物图片，帮助智能导购检索相似商品。
@@ -30,7 +30,7 @@ targets:
     info:
       path: ShopGuide/Resources/Info.plist
       properties:
-        CFBundleDisplayName: ShopGuide
+        CFBundleDisplayName: 智购罗盘
         UILaunchScreen: {}
         SHOPGUIDE_API_BASE_URL: http://127.0.0.1:8000
         NSAppTransportSecurity:

@@ -136,11 +136,11 @@ fused_score = semantic_image_score
 pip install -r server/requirements-optional.txt
 export VECTOR_STORE_BACKEND=chroma
 export CHROMA_PATH=server/storage/chroma
-export CHROMA_COLLECTION=shopguide_products
+export CHROMA_COLLECTION=cartcompass_products
 PYTHONPATH=server python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Chroma 是可选增强，不是单点依赖。启动时 `ChromaVectorStore` 会优先读取当前 `TEXT_EMBEDDING_PROVIDER/MODEL` 对应的 `text_embedding_vectors`，同步到独立的 `shopguide_products_text_*` collection；检索时用同一 embedding 模型编码用户 query，再由 Chroma 返回语义相似度。结构化过滤、BM25、可信度 reranker 和商品事实仍由 SQLite 控制，避免向量库返回非商品库事实。
+Chroma 是可选增强，不是单点依赖。启动时 `ChromaVectorStore` 会优先读取当前 `TEXT_EMBEDDING_PROVIDER/MODEL` 对应的 `text_embedding_vectors`，同步到独立的 `cartcompass_products_text_*` collection；检索时用同一 embedding 模型编码用户 query，再由 Chroma 返回语义相似度。结构化过滤、BM25、可信度 reranker 和商品事实仍由 SQLite 控制，避免向量库返回非商品库事实。
 
 如果没有配置 embedding、没有预计算真实向量，或 `chromadb` 未安装，系统会自动降级到 hashing collection / `SQLiteHashVectorStore`，本地演示不受影响。Trace 的 `retrieval_stack` 会显示 `Chroma text_embedding(...)`、`Chroma vector DB` 或 `hashing_vector`；商品 `match_reasons` 会显示 `Chroma语义向量`、`Chroma向量库`、`语义向量` 或 `本地向量`。
 

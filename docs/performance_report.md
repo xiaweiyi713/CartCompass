@@ -1,4 +1,4 @@
-# ShopGuide 性能复测说明
+# 智购罗盘 CartCompass 性能复测说明
 
 ## 复测命令
 

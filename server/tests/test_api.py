@@ -553,7 +553,7 @@ def test_virtual_checkout_session_and_mock_payment_complete_order() -> None:
     assert page.status_code == 200
     assert page.headers["content-type"].lower().startswith("text/html; charset=utf-8")
     assert page.content.startswith(b"<!doctype html>")
-    assert "ShopGuide Virtual Mall" in page.text
+    assert "CartCompass Virtual Mall" in page.text
     assert "不会产生真实扣款" in page.text
     assert "æ²ç®±" not in page.text
 
@@ -664,7 +664,7 @@ def test_chat_stream_model_identity_is_smalltalk_without_products() -> None:
     assert response.status_code == 200
     text = response.text
     token_text = _stream_tokens(text)
-    assert "ShopGuide" in token_text
+    assert "CartCompass" in token_text
     assert "对话模型" in token_text
     assert "event: products" not in text
 

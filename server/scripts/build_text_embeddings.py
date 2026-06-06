@@ -11,7 +11,7 @@ from app.rag.semantic_text import TextEmbeddingStore
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Precompute real text embeddings for ShopGuide product retrieval.")
+    parser = argparse.ArgumentParser(description="Precompute real text embeddings for CartCompass product retrieval.")
     parser.add_argument("--limit", type=int, default=None, help="Optional max number of missing product vectors to write.")
     args = parser.parse_args()
 

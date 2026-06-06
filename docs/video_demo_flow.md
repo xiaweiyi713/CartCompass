@@ -1,4 +1,4 @@
-# ShopGuide 演示视频录制流程
+# 智购罗盘 CartCompass 演示视频录制流程
 
 这份文档用于明天录制演示视频。目标是让视频既能展示“能跑起来”，也能展示工程质量、RAG 深度、多模态能力、iOS 原生体验和可观测性。你可以按实际视频时长裁剪。
 
@@ -153,7 +153,7 @@ server/static/product_images/p_clothes_014.jpg
 
 口播：
 
-> 大家好，这是我的字节 AI 全栈挑战赛项目 ShopGuide。它是一个基于 RAG 的多模态电商导购 AI Agent，前端是原生 iOS SwiftUI，后端是 FastAPI。用户可以像和豆包聊天一样，用文字、语音或图片表达购物需求；系统会基于本地商品库做推荐、对比、追问、加购和下单。核心原则是：商品事实只来自本地数据库和可追溯来源，模型不能编造价格、库存、优惠或平台承诺。
+> 大家好，这是我的字节 AI 全栈挑战赛项目智购罗盘 CartCompass。它是一个基于 RAG 的多模态电商导购 AI Agent，前端是原生 iOS SwiftUI，后端是 FastAPI。用户可以像和豆包聊天一样，用文字、语音或图片表达购物需求；系统会基于本地商品库做推荐、对比、追问、加购和下单。核心原则是：商品事实只来自本地数据库和可追溯来源，模型不能编造价格、库存、优惠或平台承诺。
 
 画面可切 README 架构图。
 
@@ -394,7 +394,7 @@ PYTHONPATH=server python server/scripts/self_check.py --require-server
 
 口播：
 
-> 总结一下，ShopGuide 覆盖了题目要求的基础导购、多轮对话、购物车下单和多模态输入；工程上有原生 iOS 客户端、FastAPI 后端、Chroma 向量库、SQLite 事实库、可观测 Dashboard、自动化测试和 runbook；可靠性上通过 GroundingGuard、结构化工具和 fallback 保证商品事实不幻觉。它不是一个纯 Web Demo，而是一个可以在移动端完整跑通的多模态电商导购 Agent。
+> 总结一下，智购罗盘 CartCompass 覆盖了题目要求的基础导购、多轮对话、购物车下单和多模态输入；工程上有原生 iOS 客户端、FastAPI 后端、Chroma 向量库、SQLite 事实库、可观测 Dashboard、自动化测试和 runbook；可靠性上通过 GroundingGuard、结构化工具和 fallback 保证商品事实不幻觉。它不是一个纯 Web Demo，而是一个可以在移动端完整跑通的多模态电商导购 Agent。
 
 ## 备用演示指令清单
 

@@ -20,7 +20,7 @@ DEFAULT_CACHE_DIR = Path("server/data_pipeline/output/kaggle_stress")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Stress test ShopGuide retrieval with Kaggle or local ecommerce CSV data.")
+    parser = argparse.ArgumentParser(description="Stress test CartCompass retrieval with Kaggle or local ecommerce CSV data.")
     parser.add_argument("--dataset", default=DEFAULT_KAGGLE_DATASET, help="Kaggle dataset slug, e.g. olistbr/brazilian-ecommerce")
     parser.add_argument("--csv-dir", type=Path, help="Use an already downloaded CSV directory instead of Kaggle download")
     parser.add_argument("--sample", type=int, default=1000, help="Number of queries to run")

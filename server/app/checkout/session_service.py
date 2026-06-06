@@ -129,7 +129,7 @@ class CheckoutService:
         <main class="layout">
           <section class="hero">
             <div>
-              <p class="eyebrow">ShopGuide Virtual Mall</p>
+              <p class="eyebrow">CartCompass Virtual Mall</p>
               <h1>沙箱结算台</h1>
               <p class="notice">这是演示环境，不会产生真实扣款，也不会收集银行卡信息。</p>
             </div>
@@ -163,7 +163,7 @@ class CheckoutService:
           </section>
         </main>
         """
-        return self._page_shell("ShopGuide 沙箱结算台", body)
+        return self._page_shell("智购罗盘沙箱结算台", body)
 
     def render_result_html(self, checkout_session_id: str) -> str:
         session = self.get_session(checkout_session_id)
@@ -177,7 +177,7 @@ class CheckoutService:
               <p class="eyebrow">Sandbox payment completed</p>
               <h1>支付成功</h1>
               <p>订单 {escape(order.order_id)} 已标记为 PAID_TEST，App 可以查询订单状态。</p>
-              <a class="pay" href="{deeplink}">返回 ShopGuide App</a>
+              <a class="pay" href="{deeplink}">返回智购罗盘 App</a>
               <a class="secondary" href="/api/orders/{escape(order.order_id)}">查看订单 JSON</a>
             </main>
             """
