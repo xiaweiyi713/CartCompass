@@ -131,7 +131,7 @@ class AgentOrchestrator:
             observability.increment("profile_updates")
             observability.add_current_step("profile", {"action": "remember", "updates": updates, "profile": profile.model_dump()})
             if updates:
-                prefix = "我已把这条长期偏好保存为：" if self.intent.is_implicit_profile_statement(message) else "我已经记住："
+                prefix = "我记住了，已把这条长期偏好保存为：" if self.intent.is_implicit_profile_statement(message) else "我已经记住："
                 text = prefix + "、".join(updates) + "。之后相关类目的推荐会自动带上这些偏好。"
             else:
                 text = "这句话里我没有识别到可长期保存的预算、肤质、品牌或成分偏好。"
@@ -865,7 +865,7 @@ class AgentOrchestrator:
         if not text:
             fallback = self._general_chat_fallback(message)
             compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
-            if any(term in compact for term in ["你是谁", "你是啥", "介绍一下", "shopguide"]):
+            if any(term in compact for term in ["你是谁", "你是啥", "介绍一下", "shopguide", "cartcompass", "智购罗盘"]):
                 text = fallback
             else:
                 try:
@@ -1134,8 +1134,8 @@ class AgentOrchestrator:
     def _general_chat_fallback(self, message: str) -> str:
         compact = re.sub(r"[\s，。！？,.!?]", "", message)
         lower = compact.lower()
-        if any(term in lower for term in ["你是谁", "你是啥", "介绍一下", "shopguide"]):
-            return "我是 ShopGuide，一个电商导购 Agent。可以正常聊天；当你给出预算、类目、偏好或排除条件时，我会只基于商品库推荐可验证的商品。"
+        if any(term in lower for term in ["你是谁", "你是啥", "介绍一下", "shopguide", "cartcompass", "智购罗盘"]):
+            return "我是智购罗盘 CartCompass，一个电商导购 Agent。可以正常聊天；当你给出预算、类目、偏好或排除条件时，我会只基于商品库推荐可验证的商品。"
         if any(term in compact for term in ["烦", "累", "压力", "焦虑", "心情不好"]):
             return (
                 "听起来你现在状态不太舒服。可以先把问题拆小一点：休息、吃饭、运动或整理环境，选一个最容易做的。"
@@ -1728,6 +1728,13 @@ class AgentOrchestrator:
     def _fallback_response_text(self, message: str, products, constraints, include_exclusion: bool = True) -> str:
         names = "、".join(self._response_product_name(product) for product in products[:3])
         guard = "以下信息来自本地商品库。"
+        # Fold the negative-constraint acknowledgement into the source guard so it
+        # appears on whichever template is chosen below — otherwise early-returning
+        # branches (e.g. 防晒) would drop "已排除X". The streaming path passes
+        # include_exclusion=False because _grounded_prefix already states it.
+        if include_exclusion and (constraints.exclude_terms or constraints.exclude_brands):
+            excluded = "、".join(dict.fromkeys(list(constraints.exclude_terms) + list(constraints.exclude_brands)))
+            guard += f"已按你的要求排除{excluded}相关商品。"
         evidence = self._recommendation_evidence_sentence(products)
         if "防晒" in message and products:
             return f"{guard} 根据你的需求，给你推荐这款防晒，价格和适用信息来自商品库：{names}。{evidence}"
@@ -1739,9 +1746,6 @@ class AgentOrchestrator:
             return f"{guard} 我优先按来源、SKU、评论和商品库证据排序，先看这几款：{names}。"
         if any(term in message for term in ["评价", "评论", "口碑", "稳"]):
             return f"{guard} 我会结合评论均分、评论数和风险提示来判断稳定性，先看这几款：{names}。"
-        if include_exclusion and (constraints.exclude_terms or constraints.exclude_brands):
-            excluded = "、".join(dict.fromkeys(constraints.exclude_terms + constraints.exclude_brands))
-            return f"{guard} 我已经排除了 {excluded} 相关商品，优先推荐：{names}。{evidence}"
         return f"{guard} 根据你的需求，我优先推荐这几款：{names}。{evidence}"
 
     def _recommendation_evidence_sentence(self, products) -> str:
@@ -1829,7 +1833,7 @@ class AgentOrchestrator:
         if compact in {"你好", "hello", "hi", "嗨"}:
             return "你好，我在。我可以像导购一样先问清需求，再基于本地商品库推荐、对比、反选和加购。你可以直接说“我想买手机”或“不要苹果，预算 7000”。"
         if "你" in compact and any(term in compact for term in ["什么模型", "哪个模型", "用的模型", "大模型"]):
-            return "我是 ShopGuide 项目里的电商导购 Agent。对话模型可以在左上角设置里切换为 DeepSeek 或其他 OpenAI-compatible 模型；商品检索、工具调用和防幻觉检查仍由本机后端统一控制。"
+            return "我是智购罗盘 CartCompass 项目里的电商导购 Agent。对话模型可以在左上角设置里切换为 DeepSeek 或其他 OpenAI-compatible 模型；商品检索、工具调用和防幻觉检查仍由本机后端统一控制。"
         if compact in {"你是谁", "你能做什么", "怎么用", "帮助", "help"}:
             return "我是这个项目里的电商导购 Agent。你可以和我正常聊天：先说模糊需求也行，我会主动追问；也可以说预算、偏好、不要的品牌/成分，我会只从商品库里找可验证的商品。还可以说“记住我以后护肤不要酒精”“1000元预算去三亚配一套”。"
         if compact in {"谢谢", "谢了", "thanks", "thankyou"}:
