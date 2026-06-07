@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🧭 智购罗盘 CartCompass
+<img src="client-ios/design/app_icon_master_1024.png" width="128" alt="智购罗盘 CartCompass App 图标" />
+
+# 智购罗盘 CartCompass
 
 ### 基于 RAG 的多模态电商智能导购 AI Agent
 
