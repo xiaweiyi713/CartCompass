@@ -77,6 +77,13 @@ enum Theme {
 
         // Glass detailing
         static let glassHighlight = SwiftUI.Color.white.opacity(0.18)
+
+        static let darkCanvasTop = SwiftUI.Color(red: 0.115, green: 0.12, blue: 0.12)
+        static let darkCanvasMid = SwiftUI.Color(red: 0.12, green: 0.13, blue: 0.13)
+        static let darkCanvasBottom = SwiftUI.Color(red: 0.02, green: 0.025, blue: 0.03)
+        static let lightCanvasTop = SwiftUI.Color(red: 0.95, green: 0.96, blue: 0.96)
+        static let lightCanvasMid = SwiftUI.Color(red: 0.89, green: 0.91, blue: 0.91)
+        static let lightCanvasBottom = SwiftUI.Color(red: 0.78, green: 0.81, blue: 0.81)
     }
 
     enum Motion {
@@ -145,42 +152,62 @@ extension View {
 
 // MARK: - Deep canvas background
 
-/// Dark-first ambient backdrop: a deep gradient with two soft brand-tinted
-/// blobs, so glass surfaces have something rich to refract.
+/// Full-screen glass canvas for every app surface, including safe areas.
+/// Dark and light appearances use different palettes but keep the same layout
+/// treatment so the UI does not split into unrelated backgrounds.
 struct LiquidBackdrop: View {
+    var forcedColorScheme: ColorScheme?
+
     @Environment(\.colorScheme) private var colorScheme
+
+    private var effectiveColorScheme: ColorScheme {
+        forcedColorScheme ?? colorScheme
+    }
 
     var body: some View {
         ZStack {
-            baseGradient
-            Circle()
-                .fill(Theme.Color.accent.opacity(colorScheme == .dark ? 0.22 : 0.12))
-                .frame(width: 320)
-                .blur(radius: 90)
-                .offset(x: -120, y: -220)
-            Circle()
-                .fill(Theme.Color.price.opacity(colorScheme == .dark ? 0.16 : 0.08))
-                .frame(width: 300)
-                .blur(radius: 100)
-                .offset(x: 140, y: 260)
+            LinearGradient(
+                colors: canvasColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            LinearGradient(
+                colors: [
+                    .white.opacity(effectiveColorScheme == .dark ? 0.18 : 0.40),
+                    .white.opacity(effectiveColorScheme == .dark ? 0.04 : 0.16),
+                    .clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .center
+            )
+
+            LinearGradient(
+                colors: [
+                    .clear,
+                    .black.opacity(effectiveColorScheme == .dark ? 0.28 : 0.10)
+                ],
+                startPoint: .center,
+                endPoint: .bottom
+            )
         }
         .ignoresSafeArea()
         .drawingGroup(opaque: true, colorMode: .linear)
     }
 
-    private var baseGradient: LinearGradient {
-        let dark = [
-            SwiftUI.Color(red: 0.05, green: 0.06, blue: 0.08),
-            SwiftUI.Color(red: 0.07, green: 0.09, blue: 0.11),
-            SwiftUI.Color(red: 0.04, green: 0.06, blue: 0.07)
+    private var canvasColors: [Color] {
+        if effectiveColorScheme == .dark {
+            return [
+                Theme.Color.darkCanvasTop,
+                Theme.Color.darkCanvasMid,
+                Theme.Color.darkCanvasBottom
+            ]
+        }
+        return [
+            Theme.Color.lightCanvasTop,
+            Theme.Color.lightCanvasMid,
+            Theme.Color.lightCanvasBottom
         ]
-        let light = [
-            SwiftUI.Color(.systemBackground),
-            SwiftUI.Color(.secondarySystemBackground),
-            SwiftUI.Color(red: 0.93, green: 0.96, blue: 0.97)
-        ]
-        return LinearGradient(colors: colorScheme == .dark ? dark : light,
-                              startPoint: .top, endPoint: .bottom)
     }
 }
 

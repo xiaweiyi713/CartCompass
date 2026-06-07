@@ -22,9 +22,14 @@ struct ChatView: View {
     @State private var isSpeechOutputEnabled = false
     @State private var showsSidebar = false
     @State private var showsVoiceSettings = false
+    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.dark.rawValue
     @AppStorage("voice.rate.v1") private var speechRate = 0.92
     @AppStorage("voice.voiceId.v1") private var speechVoiceId = ""
     @AppStorage("voice.loop.v1") private var voiceLoopEnabled = false
+
+    private var appearance: AppearanceMode {
+        AppearanceMode(rawValue: appearanceRaw) ?? .dark
+    }
 
     private let prompts = [
         "推荐手机",
@@ -44,16 +49,19 @@ struct ChatView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
-                LiquidBackdrop()
+                LiquidBackdrop(forcedColorScheme: appearance.colorScheme)
 
                 GeometryReader { proxy in
+                    let windowInsets = currentWindowSafeAreaInsets
+                    let safeTop = proxy.safeAreaInsets.top > 0 ? proxy.safeAreaInsets.top : windowInsets.top
+                    let safeBottom = proxy.safeAreaInsets.bottom > 0 ? proxy.safeAreaInsets.bottom : windowInsets.bottom
                     let drawerWidth = min(max(proxy.size.width * 0.76, 280), 340)
                     let exposedWidth = max(proxy.size.width - drawerWidth, 0)
-                    let drawerHeight = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
-                    let drawerYOffset = -proxy.safeAreaInsets.top
+                    let drawerHeight = proxy.size.height + safeTop + safeBottom
+                    let drawerYOffset = -safeTop
 
                     ZStack(alignment: .leading) {
-                        chatMainLayer
+                        chatMainLayer(topInset: safeTop, bottomInset: safeBottom)
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .offset(x: showsSidebar ? drawerWidth : 0)
                             .brightness(showsSidebar ? -0.08 : 0)
@@ -106,6 +114,7 @@ struct ChatView: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
                 }
             }
+            .ignoresSafeArea()
             .animation(.interactiveSpring(response: 0.52, dampingFraction: 0.9, blendDuration: 0.12), value: showsSidebar)
             .toolbar(.hidden, for: .navigationBar)
             .sensoryFeedback(.impact(weight: .light), trigger: model.isStreaming)
@@ -224,10 +233,16 @@ struct ChatView: View {
         }
     }
 
-    private var chatMainLayer: some View {
-        ZStack {
-            LiquidBackdrop()
+    private var currentWindowSafeAreaInsets: UIEdgeInsets {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }?
+            .safeAreaInsets ?? .zero
+    }
 
+    private func chatMainLayer(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        ZStack {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
@@ -260,8 +275,8 @@ struct ChatView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
-                .contentMargins(.top, 74, for: .scrollContent)
-                .contentMargins(.bottom, 168, for: .scrollContent)
+                .contentMargins(.top, topInset + 74, for: .scrollContent)
+                .contentMargins(.bottom, bottomInset + 168, for: .scrollContent)
                 .onChange(of: model.messages.count) {
                     if let id = model.messages.last?.id {
                         withAnimation(.snappy) {
@@ -283,6 +298,7 @@ struct ChatView: View {
                 openVoiceSettings: { showsVoiceSettings = true },
                 openCart: { showsCart = true }
             )
+            .padding(.top, topInset)
         }
         .overlay(alignment: .bottom) {
             VStack(spacing: 8) {
@@ -318,7 +334,7 @@ struct ChatView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 4)
+            .padding(.bottom, bottomInset + 4)
             .animation(.snappy(duration: 0.24), value: isListening)
         }
     }

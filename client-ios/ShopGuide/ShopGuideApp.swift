@@ -4,7 +4,7 @@ import SwiftUI
 @main
 struct ShopGuideApp: App {
     @State private var chatModel = ChatViewModel()
-    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.system.rawValue
+    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.dark.rawValue
 
     private var appearance: AppearanceMode {
         AppearanceMode(rawValue: appearanceRaw) ?? .system

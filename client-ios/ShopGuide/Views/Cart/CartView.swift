@@ -8,95 +8,158 @@ struct CartView: View {
     let clearCart: () -> Void
     let beginSandboxCheckout: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.dark.rawValue
     @State private var showsClearConfirmation = false
     @State private var showsCheckoutConfirmation = false
 
+    private var appearance: AppearanceMode {
+        AppearanceMode(rawValue: appearanceRaw) ?? .dark
+    }
+
     var body: some View {
-        NavigationStack {
-            List {
-                if cart.items.isEmpty {
-                    ContentUnavailableView("购物车为空", systemImage: "cart", description: Text("在聊天里说“把第一款加到购物车”即可加入商品。"))
-                } else {
-                    Section("商品") {
-                        ForEach(cart.items) { item in
-                            CartItemRow(item: item, isUpdating: isUpdating) { quantity in
-                                updateQuantity(item, quantity)
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    removeItem(item)
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
+        ZStack {
+            LiquidBackdrop(forcedColorScheme: appearance.colorScheme)
 
-                    Section {
-                        HStack {
-                            Text("合计")
-                            Spacer()
-                            Text("¥\(cart.totalPrice, specifier: "%.0f")")
-                                .font(.title3.bold())
-                                .foregroundStyle(Theme.Color.price)
-                        }
+            GeometryReader { proxy in
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.top, proxy.safeAreaInsets.top + Theme.Spacing.md)
+                        .padding(.bottom, Theme.Spacing.md)
 
-                        Button {
-                            showsCheckoutConfirmation = true
-                        } label: {
-                            Label("去沙箱结算", systemImage: "creditcard")
-                                .font(.headline)
-                                .foregroundStyle(Theme.Color.onAccent)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(Theme.Color.accent, in: .capsule)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isUpdating)
-
-                        Button(role: .destructive) {
-                            showsClearConfirmation = true
-                        } label: {
-                            Label("清空购物车", systemImage: "trash")
+                    ScrollView {
+                        if cart.items.isEmpty {
+                            emptyState
                                 .frame(maxWidth: .infinity)
+                                .padding(.top, 96)
+                        } else {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                                Text("商品")
+                                    .font(.headline)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, Theme.Spacing.lg)
+
+                                VStack(spacing: Theme.Spacing.sm) {
+                                    ForEach(cart.items) { item in
+                                        CartItemRow(item: item, isUpdating: isUpdating) { quantity in
+                                            updateQuantity(item, quantity)
+                                        } remove: {
+                                            removeItem(item)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, Theme.Spacing.lg)
+
+                                checkoutSummary
+                                    .padding(.horizontal, Theme.Spacing.lg)
+                            }
+                            .padding(.bottom, proxy.safeAreaInsets.bottom + Theme.Spacing.xl)
                         }
-                        .disabled(isUpdating)
                     }
+                    .scrollIndicators(.hidden)
                 }
-            }
-            .scrollContentBackground(.hidden)
-            .background(LiquidBackdrop())
-            .navigationTitle("购物车")
-            .toolbar {
-                if !cart.items.isEmpty {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("清空", role: .destructive) {
-                            showsClearConfirmation = true
-                        }
-                        .disabled(isUpdating)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") {
-                        dismiss()
-                    }
-                }
-            }
-            .confirmationDialog("清空购物车？", isPresented: $showsClearConfirmation, titleVisibility: .visible) {
-                Button("清空购物车", role: .destructive) {
-                    clearCart()
-                }
-                Button("取消", role: .cancel) {}
-            }
-            .confirmationDialog("创建虚拟商城结算页？", isPresented: $showsCheckoutConfirmation, titleVisibility: .visible) {
-                Button("打开沙箱结算") {
-                    beginSandboxCheckout()
-                    dismiss()
-                }
-                Button("取消", role: .cancel) {}
-            } message: {
-                Text("合计 ¥\(cart.totalPrice, specifier: "%.0f")。支付页为演示沙箱，不会产生真实扣款。")
             }
         }
+        .ignoresSafeArea()
+        .preferredColorScheme(appearance.colorScheme)
+        .confirmationDialog("清空购物车？", isPresented: $showsClearConfirmation, titleVisibility: .visible) {
+            Button("清空购物车", role: .destructive) {
+                clearCart()
+            }
+            Button("取消", role: .cancel) {}
+        }
+        .confirmationDialog("创建虚拟商城结算页？", isPresented: $showsCheckoutConfirmation, titleVisibility: .visible) {
+            Button("打开沙箱结算") {
+                beginSandboxCheckout()
+                dismiss()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("合计 ¥\(cart.totalPrice, specifier: "%.0f")。支付页为演示沙箱，不会产生真实扣款。")
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            HStack {
+                if !cart.items.isEmpty {
+                    Button("清空", role: .destructive) {
+                        showsClearConfirmation = true
+                    }
+                    .buttonStyle(CartHeaderButtonStyle())
+                    .disabled(isUpdating)
+                } else {
+                    Color.clear.frame(width: 72, height: 44)
+                }
+
+                Spacer()
+
+                Button("完成") {
+                    dismiss()
+                }
+                .buttonStyle(CartHeaderButtonStyle())
+            }
+
+            Text("购物车")
+                .font(.largeTitle.bold())
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            Image(systemName: "cart")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 72, height: 72)
+                .liquidGlass(radius: Theme.Radius.lg, elevated: false)
+            Text("购物车为空")
+                .font(.title3.bold())
+            Text("在聊天里说“把第一款加到购物车”即可加入商品。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Theme.Spacing.xl)
+        }
+    }
+
+    private var checkoutSummary: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            HStack {
+                Text("合计")
+                    .font(.title3.weight(.medium))
+                Spacer()
+                Text("¥\(cart.totalPrice, specifier: "%.0f")")
+                    .font(.title2.bold())
+                    .foregroundStyle(Theme.Color.price)
+            }
+
+            Divider().overlay(Theme.Color.cardStroke)
+
+            Button {
+                showsCheckoutConfirmation = true
+            } label: {
+                Label("去沙箱结算", systemImage: "creditcard")
+                    .font(.headline)
+                    .foregroundStyle(Theme.Color.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(Theme.Color.accent, in: .capsule)
+            }
+            .buttonStyle(.plain)
+            .disabled(isUpdating)
+
+            Divider().overlay(Theme.Color.cardStroke)
+
+            Button(role: .destructive) {
+                showsClearConfirmation = true
+            } label: {
+                Label("清空购物车", systemImage: "trash")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .disabled(isUpdating)
+        }
+        .padding(Theme.Spacing.md)
+        .liquidGlass(radius: Theme.Radius.lg, elevated: false)
     }
 }
 
@@ -104,6 +167,7 @@ private struct CartItemRow: View {
     let item: CartItem
     let isUpdating: Bool
     let updateQuantity: (Int) -> Void
+    let remove: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -146,7 +210,30 @@ private struct CartItemRow: View {
                 .buttonStyle(.borderless)
                 .padding(.top, 4)
             }
+            Spacer(minLength: Theme.Spacing.xs)
+            Button(role: .destructive, action: remove) {
+                Image(systemName: "trash")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 34, height: 34)
+            }
+            .buttonStyle(.borderless)
+            .disabled(isUpdating)
         }
+        .padding(Theme.Spacing.sm)
+        .liquidGlass(radius: Theme.Radius.lg, elevated: false)
+    }
+}
+
+private struct CartHeaderButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, Theme.Spacing.md)
+            .frame(minWidth: 72, minHeight: 44)
+            .background(.ultraThinMaterial, in: .capsule)
+            .overlay(Capsule().strokeBorder(Theme.Color.cardStroke, lineWidth: 1))
+            .opacity(configuration.isPressed ? 0.72 : 1)
     }
 }
 
@@ -185,7 +272,7 @@ private struct ProductThumbnail: View {
                 .foregroundStyle(.secondary)
         }
         .frame(width: 64, height: 64)
-        .background(Color(.tertiarySystemGroupedBackground))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 

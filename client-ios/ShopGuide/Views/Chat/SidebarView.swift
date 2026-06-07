@@ -10,7 +10,7 @@ struct SidebarView: View {
     var openModelBrain: () -> Void
     var openPrivacy: () -> Void
 
-    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.system.rawValue
+    @AppStorage("shopguide.appearance") private var appearanceRaw = AppearanceMode.dark.rawValue
     @Environment(\.modelContext) private var context
     @Query(sort: \StoredConversation.createdAt, order: .reverse) private var conversations: [StoredConversation]
     @State private var selected: StoredConversation?
