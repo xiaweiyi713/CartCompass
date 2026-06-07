@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="client-ios/design/app_icon_master_1024.png" width="128" alt="智购罗盘 CartCompass App 图标" />
+<img src="docs/assets/app_icon_readme.png" width="148" alt="智购罗盘 CartCompass App 图标" />
 
 # 智购罗盘 CartCompass
 
