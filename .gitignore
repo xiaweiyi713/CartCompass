@@ -27,3 +27,6 @@ client-ios/ShopGuide.xcodeproj/xcuserdata/
 client-ios/ShopGuide.xcodeproj/project.xcworkspace/xcuserdata/
 
 server/storage/*.json
+
+# 赛题 PDF 含主办方共用 key,绝不入库
+*.pdf
