@@ -33,6 +33,10 @@ targets:
         CFBundleDisplayName: 智购罗盘
         UILaunchScreen: {}
         SHOPGUIDE_API_BASE_URL: http://127.0.0.1:8000
+        NSCameraUsageDescription: 用于拍摄实物图片，帮助智能导购检索相似商品。
+        NSMicrophoneUsageDescription: 用于把你的语音需求转成文字导购请求。
+        NSPhotoLibraryUsageDescription: 用于选择商品图片，帮助智能导购检索相似商品。
+        NSSpeechRecognitionUsageDescription: 用于识别你的语音导购需求并填入输入框。
         NSAppTransportSecurity:
           NSExceptionDomains:
             127.0.0.1:

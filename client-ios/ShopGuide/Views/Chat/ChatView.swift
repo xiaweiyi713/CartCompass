@@ -84,6 +84,7 @@ struct ChatView: View {
                             SidebarView(
                                 model: model,
                                 isOpen: $showsSidebar,
+                                topInset: safeTop,
                                 openProfile: { showsSidebar = false; showsProfile = true; model.loadProfile() },
                                 openModelBrain: { showsSidebar = false; showsModelBrain = true; model.loadLLMStatus() },
                                 openPrivacy: { showsSidebar = false; showsPrivacy = true }
@@ -479,10 +480,21 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
 }
 
 private final class SpeechInputController: NSObject {
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh_CN"))
     private let audioEngine = AVAudioEngine()
+    private let cloudTranscription = SpeechTranscriptionAPIService()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var audioRecorder: AVAudioRecorder?
+    private var cloudRecordingURL: URL?
+    private var cloudUploadTask: Task<Void, Never>?
+    private var cloudAutoStopTask: Task<Void, Never>?
+    private var cloudCallbacks: (
+        onTranscript: (String) -> Void,
+        onError: (String) -> Void,
+        onFinish: () -> Void
+    )?
+    private var nativeTranscriptEmitted = false
+    private var userStoppedNativeRecognition = false
 
     func start(
         onTranscript: @escaping (String) -> Void,
@@ -506,7 +518,16 @@ private final class SpeechInputController: NSObject {
             }
             do {
                 try await MainActor.run {
-                    try self.startRecording(onTranscript: onTranscript, onFinish: onFinish)
+                    if let recognizer = self.preferredRecognizer() {
+                        try self.startRecording(
+                            recognizer: recognizer,
+                            onTranscript: onTranscript,
+                            onError: onError,
+                            onFinish: onFinish
+                        )
+                    } else {
+                        try self.startCloudRecording(onTranscript: onTranscript, onError: onError, onFinish: onFinish)
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -516,24 +537,26 @@ private final class SpeechInputController: NSObject {
         }
     }
 
+    @MainActor
     func stop() {
-        task?.cancel()
-        task = nil
-        request?.endAudio()
-        request = nil
-        if audioEngine.isRunning {
-            audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
+        if audioRecorder != nil {
+            finishCloudRecording()
+            return
         }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        userStoppedNativeRecognition = true
+        stopNativeRecognition()
     }
 
     @MainActor
-    private func startRecording(onTranscript: @escaping (String) -> Void, onFinish: @escaping () -> Void) throws {
+    private func startRecording(
+        recognizer: SFSpeechRecognizer,
+        onTranscript: @escaping (String) -> Void,
+        onError: @escaping (String) -> Void,
+        onFinish: @escaping () -> Void
+    ) throws {
         stop()
-        guard let recognizer, recognizer.isAvailable else {
-            throw SpeechInputError.recognizerUnavailable
-        }
+        userStoppedNativeRecognition = false
+        nativeTranscriptEmitted = false
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
@@ -556,16 +579,137 @@ private final class SpeechInputController: NSObject {
             guard let self else { return }
             if let transcript = result?.bestTranscription.formattedString, !transcript.isEmpty {
                 Task { @MainActor in
+                    self.nativeTranscriptEmitted = true
                     onTranscript(transcript)
                 }
             }
-            if error != nil || result?.isFinal == true {
+            if error != nil {
                 Task { @MainActor in
-                    self.stop()
+                    guard !self.userStoppedNativeRecognition else { return }
+                    self.stopNativeRecognition()
+                    if self.nativeTranscriptEmitted {
+                        onFinish()
+                    } else {
+                        do {
+                            try self.startCloudRecording(
+                                onTranscript: onTranscript,
+                                onError: onError,
+                                onFinish: onFinish
+                            )
+                        } catch {
+                            onError("语音输入启动失败：\(error.localizedDescription)")
+                        }
+                    }
+                }
+                return
+            }
+            if result?.isFinal == true {
+                Task { @MainActor in
+                    self.stopNativeRecognition()
                     onFinish()
                 }
             }
         }
+    }
+
+    @MainActor
+    private func startCloudRecording(
+        onTranscript: @escaping (String) -> Void,
+        onError: @escaping (String) -> Void,
+        onFinish: @escaping () -> Void
+    ) throws {
+        stop()
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cartcompass-speech-\(UUID().uuidString).m4a")
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 16_000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        ]
+        let recorder = try AVAudioRecorder(url: url, settings: settings)
+        recorder.isMeteringEnabled = true
+        recorder.prepareToRecord()
+        guard recorder.record() else {
+            throw SpeechInputError.cloudRecordingUnavailable
+        }
+        audioRecorder = recorder
+        cloudRecordingURL = url
+        cloudCallbacks = (onTranscript, onError, onFinish)
+        cloudAutoStopTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            await MainActor.run {
+                self?.finishCloudRecording()
+            }
+        }
+    }
+
+    @MainActor
+    private func stopNativeRecognition() {
+        task?.cancel()
+        task = nil
+        request?.endAudio()
+        request = nil
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    @MainActor
+    private func finishCloudRecording() {
+        guard let recorder = audioRecorder,
+              let url = cloudRecordingURL,
+              let callbacks = cloudCallbacks else {
+            return
+        }
+        recorder.stop()
+        audioRecorder = nil
+        cloudRecordingURL = nil
+        cloudCallbacks = nil
+        cloudAutoStopTask?.cancel()
+        cloudAutoStopTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+
+        cloudUploadTask?.cancel()
+        cloudUploadTask = Task { [cloudTranscription] in
+            do {
+                let text = try await cloudTranscription.transcribe(fileURL: url)
+                try? FileManager.default.removeItem(at: url)
+                await MainActor.run {
+                    callbacks.onTranscript(text)
+                    callbacks.onFinish()
+                }
+            } catch {
+                try? FileManager.default.removeItem(at: url)
+                await MainActor.run {
+                    callbacks.onError("语音转写失败：\(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func preferredRecognizer() -> SFSpeechRecognizer? {
+        let identifiers = [
+            "zh-Hans-CN",
+            "zh_CN",
+            "zh-Hans",
+            Locale.current.identifier,
+            "en-US",
+            "en_US"
+        ]
+        var seen = Set<String>()
+        for identifier in identifiers where seen.insert(identifier).inserted {
+            if let recognizer = SFSpeechRecognizer(locale: Locale(identifier: identifier)) {
+                return recognizer
+            }
+        }
+        return nil
     }
 
     private func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
@@ -591,11 +735,69 @@ private final class SpeechInputController: NSObject {
     }
 
     private enum SpeechInputError: LocalizedError {
-        case recognizerUnavailable
+        case cloudRecordingUnavailable
 
         var errorDescription: String? {
-            "当前语音识别服务不可用，请稍后再试。"
+            switch self {
+            case .cloudRecordingUnavailable:
+                "当前设备无法启动录音。"
+            }
         }
+    }
+}
+
+private struct SpeechTranscriptionAPIService {
+    private let client = APIClient()
+    private let decoder = JSONDecoder()
+
+    func transcribe(fileURL: URL) async throws -> String {
+        var request = URLRequest(url: client.baseURL.appending(path: "/api/speech/transcribe"))
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let audio = try Data(contentsOf: fileURL)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 35
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = multipartBody(audio: audio, filename: fileURL.lastPathComponent, boundary: boundary)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try APIClient.validate(response, data: data)
+        let payload = try decoder.decode(SpeechTranscriptionResponse.self, from: data)
+        let text = payload.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            throw SpeechTranscriptionError.emptyResult
+        }
+        return text
+    }
+
+    private func multipartBody(audio: Data, filename: String, boundary: String) -> Data {
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n")
+        body.append("Content-Type: audio/mp4\r\n\r\n")
+        body.append(audio)
+        body.append("\r\n--\(boundary)--\r\n")
+        return body
+    }
+}
+
+private struct SpeechTranscriptionResponse: Decodable {
+    let text: String
+}
+
+private enum SpeechTranscriptionError: LocalizedError {
+    case emptyResult
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyResult:
+            "没有识别到语音内容。"
+        }
+    }
+}
+
+private extension Data {
+    mutating func append(_ string: String) {
+        append(Data(string.utf8))
     }
 }
 

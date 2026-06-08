@@ -6,6 +6,7 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var model: ChatViewModel
     @Binding var isOpen: Bool
+    let topInset: CGFloat
     var openProfile: () -> Void
     var openModelBrain: () -> Void
     var openPrivacy: () -> Void
@@ -39,7 +40,7 @@ struct SidebarView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.top, Theme.Spacing.xl)
+        .padding(.top, topInset + Theme.Spacing.md)
         .padding(.bottom, Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(item: $selected) { conversation in
