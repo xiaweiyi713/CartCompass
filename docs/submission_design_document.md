@@ -38,7 +38,7 @@ flowchart TD
 | iOS 客户端 | SwiftUI、SwiftData、Observation、AVFoundation TTS、Speech ASR、PhotosUI、UIKit 相机桥接 |
 | 后端 API | Python 3.11、FastAPI、SSE StreamingResponse、Pydantic v2、Uvicorn |
 | 数据与 RAG | SQLite、商品 chunks、BM25、hashing vector、可选 Chroma、可选 Ark/Doubao embedding |
-| 多模态 | 相机/相册上传、VLM 图像理解、Doubao 多模态 embedding、CLIP/轻量视觉 fallback |
+| 多模态 | 相机/相册上传、VLM 图像理解、Doubao 多模态 embedding、CLIP/轻量视觉 fallback；端侧 + 服务端(`/api/speech/transcribe`)双路语音转写 |
 | Agent 与模型 | Ark/Doubao、DeepSeek 或 OpenAI-compatible Provider Gateway、结构化 JSON 校验、规则兜底 |
 | 质量保障 | pytest、E2E evaluation cases、self-check、性能测量脚本、Trace 和 Dashboard |
 | 部署 | 本地 Python venv、Docker Compose、SQLite 种子库自动复制 |
@@ -90,6 +90,7 @@ flowchart TD
 | `ARK_API_KEY` | Ark/Doubao 对话模型和默认 VLM/embedding Key |
 | `TEXT_EMBEDDING_MODEL` | 文本/多模态 embedding 模型，示例 `doubao-embedding-vision-251215` |
 | `VISION_UNDERSTANDING_MODEL` | 图片理解模型，默认 `doubao-seed-2-0-lite-260428` |
+| `SPEECH_TRANSCRIPTION_MODEL` | 服务端语音转写模型，留空回退 `ARK_MODEL`；端侧识别不依赖此项 |
 | `VECTOR_STORE_BACKEND` | `sqlite` 或 `chroma` |
 | `CHROMA_COLLECTION` | Chroma collection，默认 `cartcompass_products` |
 | `CORS_ALLOW_ORIGINS` | CORS 允许来源，本地演示默认 `*` |
@@ -121,7 +122,7 @@ Agent 不是让 LLM 自由调用商品事实，而是 planner-first + tool-first
 iOS 端支持三类输入：
 
 - 文字：普通聊天和导购命令。
-- 语音：Speech ASR 转文字，AVFoundation TTS 朗读简短回答，支持语速和音色设置。
+- 语音：双路 ASR 互补——端侧 `SFSpeechRecognizer` 流式实时转写，或上传音频至服务端 `POST /api/speech/transcribe`；AVFoundation TTS 朗读简短回答，支持语速、音色调节与语音连续对话。
 - 图片：相机/相册上传至 `/api/image_search`，后端融合 VLM 图像理解、多模态 embedding、CLIP/轻量视觉特征和文本 query。
 
 拍照找货的核心是图文共享向量空间。图片 embedding 与商品文本 embedding 做余弦相似度，不依赖用户输入关键词，因此手机图可召回手机、防晒图可召回防晒。所有最终商品卡仍来自本地商品库。
@@ -143,7 +144,7 @@ iOS 端支持三类输入：
 - `GET /admin/metrics`：可视化 Dashboard。
 - `GET /api/traces/{trace_id}`：单次请求从意图到检索、Guard、输出的链路。
 
-测试覆盖健康检查、SSE、澄清、反选、多轮上下文、平替、长期偏好、售后、购物车、模拟下单、图片搜索、observability 和数据管线。评测脚本位于 `server/evaluation/`，可输出 JSON/HTML 报告。
+测试覆盖健康检查、SSE、澄清、反选、多轮上下文、平替、长期偏好、售后、购物车、模拟下单、图片搜索、observability 和数据管线。当前 **140 项 pytest 全部通过**，能力评测 **24/24（case 通过率 1.0）**，核心指标(Top-3 命中、反选过滤、主动澄清、加购、跨模态图搜、预算套装)全部为 1.0。评测脚本位于 `server/evaluation/`，可输出 JSON/HTML 报告。
 
 ## 12. 关键问题与解决方案
 

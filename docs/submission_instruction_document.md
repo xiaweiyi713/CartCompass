@@ -1,21 +1,30 @@
 # 智购罗盘 CartCompass 部署与体验说明文档
 
+## 0. 获取代码
+
+```bash
+git clone https://github.com/xiaweiyi713/CartCompass.git
+cd CartCompass
+```
+
+> 仓库开箱即用：321 条演示商品的种子库已随仓提交，首次启动会自动建库并补全分块与库存，无需手动入库。
+
 ## 1. 快速体验路径
 
 评委最快体验方式：
 
-1. 启动 FastAPI 后端。
-2. 打开 `client-ios/ShopGuide.xcodeproj`，运行 iOS App。App 显示名为「智购罗盘」。
+1. 启动 FastAPI 后端（见第 2 节，约 1 分钟）。
+2. 打开 `client-ios/ShopGuide.xcodeproj`，选 iPhone 模拟器运行 iOS App。App 显示名为「智购罗盘」。
 3. 发送导购问题，观察商品卡、流式回答、对比、购物车、下单和 Dashboard Trace。
 
-后端没有模型 Key 也能运行；配置 `ARK_API_KEY` 后可启用更完整的 LLM 生成、VLM 图像理解和多模态 embedding。
+后端没有模型 Key 也能运行（自动降级本地确定性导购）；配置 `ARK_API_KEY` 后可启用更完整的 LLM 生成、VLM 图像理解、多模态 embedding 与服务端语音转写。
 
 ## 2. 本地后端部署
 
 要求 Python 3.10+，推荐 Python 3.11。
 
 ```bash
-cd "字节AI全栈挑战赛"
+cd CartCompass
 python3.11 -m venv server/.venv
 source server/.venv/bin/activate
 python --version
@@ -41,7 +50,7 @@ curl http://127.0.0.1:8000/api/health
 ## 3. Docker 部署
 
 ```bash
-cd "字节AI全栈挑战赛"
+cd CartCompass
 docker compose up --build cartcompass-api
 ```
 
@@ -183,7 +192,11 @@ open ShopGuide.xcodeproj
 
 预期：返回购物车状态、地址确认、订单汇总和订单卡；沙箱结算不产生真实扣款。
 
-### 7.7 图片找货
+### 7.7 语音输入与朗读
+
+点击聊天页底部麦克风，说出需求（如「推荐拍照好的手机四千以内」），观察聆听浮层**实时转写**；长按顶部喇叭可调**语速 / 音色**；开启「语音连续对话」后说完会**自动发送并朗读回复**。端侧识别为主，亦可走服务端 `POST /api/speech/transcribe` 转写音频。
+
+### 7.8 图片找货
 
 在 App 中点击图片入口，上传：
 
@@ -193,7 +206,7 @@ server/static/product_images/p_anker_001_fc881685.jpg
 
 预期：返回同类充电设备商品，推荐理由中包含图文语义匹配、VLM 关键词或视觉特征。
 
-### 7.8 可观测性
+### 7.9 可观测性
 
 打开：
 
