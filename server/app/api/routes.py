@@ -7,6 +7,7 @@ from app.agent.after_sale_policy import AfterSalePolicyService
 from app.agent.cart import CartService
 from app.agent.orchestrator import AgentOrchestrator
 from app.agent.session_store import SessionStore
+from app.agent.speech_transcription import SpeechTranscriptionError, SpeechTranscriptionService
 from app.agent.user_profile import UserProfileService
 from app.checkout.session_service import CheckoutService
 from app.models.schemas import (
@@ -37,6 +38,7 @@ profiles = UserProfileService()
 agent = AgentOrchestrator(products, cart, sessions, profiles)
 image_search_service = ImageSearchService(products)
 after_sale_policy = AfterSalePolicyService()
+speech_transcription_service = SpeechTranscriptionService()
 
 
 @router.get("/health")
@@ -203,6 +205,27 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/speech/transcribe")
+async def speech_transcribe(file: UploadFile = File(...)) -> dict:
+    content = await file.read()
+    trace_id = observability.start_trace(
+        "speech_transcribe",
+        {"filename": file.filename, "content_type": file.content_type, "bytes": len(content)},
+    )
+    trace_token = observability.set_current_trace(trace_id)
+    try:
+        text = await speech_transcription_service.transcribe(content, file.filename or "speech.m4a", file.content_type)
+        observability.increment("speech_transcription_success")
+        observability.finish_trace(trace_id, "ok")
+        return {"ok": True, "trace_id": trace_id, "text": text}
+    except SpeechTranscriptionError as exc:
+        observability.increment("speech_transcription_failure")
+        observability.finish_trace(trace_id, "error")
+        return JSONResponse(status_code=503, content={"detail": str(exc), "trace_id": trace_id})
+    finally:
+        observability.reset_current_trace(trace_token)
 
 
 @router.post("/cart/add")

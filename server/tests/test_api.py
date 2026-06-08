@@ -942,6 +942,24 @@ def test_premium_phone_budget_followups_rank_near_budget_tier() -> None:
     assert all(product["base_price"] <= 10000 for product in products_10000)
 
 
+def test_gaming_phone_with_high_budget_does_not_rank_low_tier_first() -> None:
+    session_id = "test-gaming-phone-high-budget-tier"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐手机"})
+    assert "needs_clarification" in first.text
+
+    response = client.post(
+        "/api/chat/stream",
+        json={"session_id": session_id, "message": "游戏，预算9999"},
+    )
+    assert response.status_code == 200
+    products = _stream_products(response.text)
+    assert len(products) == 3
+    assert products[0]["product_id"] == "p_digital_003"
+    assert products[0]["base_price"] == 9999
+    assert all(product["base_price"] <= 9999 for product in products)
+    assert "预算高度贴合" in _stream_tokens(response.text)
+
+
 def test_phone_budget_particle_followup_keeps_active_context() -> None:
     session_id = "test-phone-budget-particle-followup"
     first = client.post(
@@ -1436,6 +1454,23 @@ def test_affirmative_followup_continues_active_shopping_context() -> None:
     assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
 
 
+def test_chinese_budget_followup_continues_pending_phone_request() -> None:
+    session_id = "test-chinese-budget-phone-followup"
+    first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐手机"})
+    assert "needs_clarification" in first.text
+
+    response = client.post("/api/chat/stream", json={"session_id": session_id, "message": "七千元"})
+    assert response.status_code == 200
+    text = response.text
+    products = _stream_products(text)
+    assert '"mode": "general_chat"' not in text
+    assert "needs_clarification" not in text
+    assert products
+    assert all(product["category"] == "数码电子" for product in products)
+    assert all(product["sub_category"] in {"智能手机", "手机"} for product in products)
+    assert all(product["base_price"] <= 7000 for product in products)
+
+
 def test_more_results_followup_uses_previous_recommendation_context() -> None:
     session_id = "test-more-results-phone-context"
     first = client.post("/api/chat/stream", json={"session_id": session_id, "message": "推荐9999以内的手机"})
@@ -1470,6 +1505,10 @@ def test_approximate_budget_parser_accepts_generic_numeric_forms() -> None:
     plain_budget = agent.parser.parse("预算500送女生礼物")
     assert plain_budget.max_price == 500
     assert plain_budget.min_price is None
+
+    chinese_budget = agent.parser.parse("七千元")
+    assert chinese_budget.max_price == 7000
+    assert chinese_budget.min_price is None
 
 
 def test_chat_stream_feedback_switches_brand() -> None:

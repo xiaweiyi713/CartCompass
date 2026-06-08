@@ -129,6 +129,13 @@ class ConstraintParser:
         if approx is not None:
             return approx * 1.35
         trimmed = message.strip().strip("呢吗呀啊吧了")
+        standalone_chinese_budget = re.fullmatch(
+            r"([一二两三四五六七八九十]+(?:千|万))\s*(?:元|块|rmb)?",
+            trimmed,
+            re.I,
+        )
+        if standalone_chinese_budget:
+            return self._price_value(standalone_chinese_budget.group(1))
         patterns = [
             r"(\d+(?:\.\d+)?)\s*(?:元|块|rmb)?\s*(?:以内|以下|内|之内)",
             r"预算\s*(\d+(?:\.\d+)?)",

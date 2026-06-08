@@ -221,6 +221,8 @@ class ConversationModeRouter:
             return True
         if re.fullmatch(r"\d{3,6}的", normalized):
             return True
+        if re.fullmatch(r"[一二两三四五六七八九十]+(?:千|万)(?:元|块|rmb)?", normalized, re.I):
+            return True
         if re.search(r"(?:\d{1,6}(?:\.\d+)?(?:k|千|万)?|[一二两三四五六七八九十]+(?:千|万)?)(?:元|块|rmb)?(?:左右|上下|附近|价位|档)", normalized, re.I):
             return True
         if normalized in {"随便", "都行", "不限", "默认", "无所谓", "你看着推荐", "看你推荐", "是", "是的", "对", "对的", "嗯", "没错"}:

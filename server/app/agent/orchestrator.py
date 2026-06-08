@@ -762,10 +762,16 @@ class AgentOrchestrator:
         scored = []
         for index, product in enumerate(products):
             text = self._product_text_for_business(product)
-            score = 0
+            feature_score = 0
             for terms in active_groups:
-                score += sum(1 for term in terms if term.lower() in text)
-            scored.append((score, index, product))
+                group_matches = sum(1 for term in terms if term.lower() in text)
+                feature_score += min(group_matches, 2)
+            rank_score = float(feature_score)
+            if self._should_rank_near_phone_budget(message, constraints, product):
+                price_ratio = min(1.0, product.base_price / max(float(constraints.max_price), 1.0))
+                rank_score += price_ratio * 3.0
+            rank_score += float(product.match_score or 0) / 200.0
+            scored.append((feature_score, rank_score, index, product))
         matching = [item for item in scored if item[0] > 0]
         if len(matching) >= 3:
             ranked = matching
@@ -773,8 +779,19 @@ class AgentOrchestrator:
             ranked = scored
         else:
             return products
-        ranked.sort(key=lambda item: (-item[0], item[1]))
-        return [product for _, _, product in ranked]
+        ranked.sort(key=lambda item: (-item[1], item[2]))
+        return [product for _, _, _, product in ranked]
+
+    def _should_rank_near_phone_budget(self, message: str, constraints, product) -> bool:
+        if constraints.max_price is None or constraints.max_price < 7000:
+            return False
+        compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
+        if any(term in compact for term in ["便宜", "省钱", "低价", "平替", "性价比"]):
+            return False
+        return (
+            product.category == "数码电子"
+            and product.sub_category in {"手机", "智能手机"}
+        )
 
     def _active_feature_groups(self, message: str, constraints) -> list[list[str]]:
         compact = re.sub(r"[\s，。！？,.!?]", "", message.lower())
@@ -1735,7 +1752,7 @@ class AgentOrchestrator:
         if include_exclusion and (constraints.exclude_terms or constraints.exclude_brands):
             excluded = "、".join(dict.fromkeys(list(constraints.exclude_terms) + list(constraints.exclude_brands)))
             guard += f"已按你的要求排除{excluded}相关商品。"
-        evidence = self._recommendation_evidence_sentence(products)
+        evidence = self._recommendation_evidence_sentence(message, products, constraints)
         if "防晒" in message and products:
             return f"{guard} 根据你的需求，给你推荐这款防晒，价格和适用信息来自商品库：{names}。{evidence}"
         if "对比" in message or "哪个" in message:
@@ -1748,11 +1765,30 @@ class AgentOrchestrator:
             return f"{guard} 我会结合评论均分、评论数和风险提示来判断稳定性，先看这几款：{names}。"
         return f"{guard} 根据你的需求，我优先推荐这几款：{names}。{evidence}"
 
-    def _recommendation_evidence_sentence(self, products) -> str:
+    def _recommendation_evidence_sentence(self, message: str, products, constraints) -> str:
         if not products:
             return ""
         top = products[0]
         parts = []
+        if self._should_rank_near_phone_budget(message, constraints, top):
+            price_ratio = top.base_price / max(float(constraints.max_price), 1.0)
+            if price_ratio >= 0.97:
+                parts.append(f"价格约 {top.base_price:.0f} 元，与 {constraints.max_price:.0f} 元预算高度贴合")
+        active_groups = self._active_feature_groups(message, constraints)
+        product_text = self._product_text_for_business(top)
+        preference_terms = {
+            "游戏性能": ["游戏", "性能", "散热", "高刷", "芯片", "稳帧", "a19 pro"],
+            "续航": ["续航", "大电池", "电池", "省电", "功耗"],
+            "拍照": ["拍照", "影像", "摄影", "主摄", "长焦", "人像", "传感器"],
+        }
+        matched_preferences = [
+            key
+            for key, terms in preference_terms.items()
+            if any(term.lower() in product_text for term in terms)
+            and any(any(term.lower() in group for term in terms) for group in active_groups)
+        ]
+        if matched_preferences:
+            parts.append("命中你的" + "、".join(matched_preferences[:2]) + "偏好")
         if top.reason:
             parts.append(top.reason)
         parts.extend(top.match_reasons[:2])
